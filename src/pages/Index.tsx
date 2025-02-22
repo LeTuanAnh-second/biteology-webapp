@@ -1,7 +1,10 @@
-
 import { BookOpen, Activity, Library } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { user, logout } = useAuth();
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -11,7 +14,27 @@ const Index = () => {
             <Activity className="h-6 w-6 text-primary" />
             <span className="text-xl font-semibold">BITeology</span>
           </div>
-          <button className="secondary-button">Đăng nhập</button>
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <>
+                <Link to="/dashboard" className="secondary-button">
+                  Dashboard
+                </Link>
+                <button onClick={logout} className="secondary-button">
+                  Đăng xuất
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="secondary-button">
+                  Đăng nhập
+                </Link>
+                <Link to="/register" className="primary-button">
+                  Đăng ký
+                </Link>
+              </>
+            )}
+          </div>
         </nav>
       </header>
 
