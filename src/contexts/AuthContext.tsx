@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Đăng ký thành công",
         description: "Tài khoản của bạn đã được tạo"
       });
-      navigate('/dashboard');
+      navigate('/'); // Changed from '/dashboard' to '/'
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -113,3 +113,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
