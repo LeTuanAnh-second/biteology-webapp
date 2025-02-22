@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Đăng nhập thành công",
         description: "Chào mừng bạn đã quay trở lại!"
       });
-      navigate('/dashboard');
+      navigate('/'); // Changed from '/dashboard' to '/'
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Đăng ký thành công",
         description: "Tài khoản của bạn đã được tạo"
       });
-      navigate('/'); // Changed from '/dashboard' to '/'
+      navigate('/');
     } catch (error: any) {
       toast({
         variant: "destructive",
