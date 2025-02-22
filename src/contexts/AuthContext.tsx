@@ -1,13 +1,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -28,27 +22,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+
       toast({
         title: "Đăng nhập thành công",
         description: "Chào mừng bạn đã quay trở lại!"
       });
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Đăng nhập thất bại",
-        description: "Email hoặc mật khẩu không chính xác"
+        description: error.message
       });
       throw error;
     }
@@ -56,17 +64,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signUp = async (email: string, password: string) => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
       toast({
         title: "Đăng ký thành công",
         description: "Tài khoản của bạn đã được tạo"
       });
       navigate('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Đăng ký thất bại",
-        description: "Đã có lỗi xảy ra, vui lòng thử lại"
+        description: error.message
       });
       throw error;
     }
@@ -74,16 +88,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
-      await signOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
       toast({
         title: "Đăng xuất thành công"
       });
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Đăng xuất thất bại",
-        description: "Đã có lỗi xảy ra, vui lòng thử lại"
+        description: error.message
       });
       throw error;
     }
