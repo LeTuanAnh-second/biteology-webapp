@@ -9,6 +9,9 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import HealthTracking from "./pages/HealthTracking";
+import NutritionAdvice from "./pages/NutritionAdvice";
+import KnowledgeBase from "./pages/KnowledgeBase";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +26,9 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/health-tracking" element={<HealthTracking />} />
+            <Route path="/nutrition-advice" element={<NutritionAdvice />} />
+            <Route path="/knowledge-base" element={<KnowledgeBase />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

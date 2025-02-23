@@ -1,3 +1,4 @@
+
 import { BookOpen, Activity, Library } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,29 +78,29 @@ const Index = () => {
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="feature-card">
+              <Link to="/health-tracking" className="feature-card">
                 <Activity className="h-10 w-10 text-primary mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Theo dõi chỉ số</h3>
                 <p className="text-muted-foreground">
                   Ghi lại và theo dõi các chỉ số sức khỏe quan trọng như cân nặng và đường huyết.
                 </p>
-              </div>
+              </Link>
 
-              <div className="feature-card">
+              <Link to="/nutrition-advice" className="feature-card">
                 <BookOpen className="h-10 w-10 text-primary mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Tư vấn dinh dưỡng</h3>
                 <p className="text-muted-foreground">
                   Nhận lời khuyên về chế độ ăn uống phù hợp với tình trạng sức khỏe của bạn.
                 </p>
-              </div>
+              </Link>
 
-              <div className="feature-card">
+              <Link to="/knowledge-base" className="feature-card">
                 <Library className="h-10 w-10 text-primary mb-4" />
                 <h3 className="text-xl font-semibold mb-2">Thư viện kiến thức</h3>
                 <p className="text-muted-foreground">
                   Truy cập kho tàng kiến thức về sức khỏe và các thức nấu ăn lành mạnh.
                 </p>
-              </div>
+              </Link>
             </div>
           </div>
         </section>
