@@ -1,55 +1,99 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 // Types for our data
-interface FoodItem {
+interface Category {
   id: number;
   name: string;
-  image: string;
   description: string;
-  recipe: string;
-  diseaseTypes: string[];
 }
 
-// Mock data for disease categories
-const diseaseCategories = [
-  "Bệnh tim mạch",
-  "Béo phì",
-  "Tiểu đường",
-  "Cao huyết áp"
-];
-
-// Mock data for food items
-const foodItems: FoodItem[] = [
-  {
-    id: 1,
-    name: "Salad cá hồi",
-    image: "/lovable-uploads/6fe7589b-6114-4c7e-9ee1-e97994f6ff38.png",
-    description: "Salad cá hồi giàu omega-3, tốt cho tim mạch",
-    recipe: "Cá hồi nướng, rau xanh tổng hợp, dầu olive, chanh",
-    diseaseTypes: ["Bệnh tim mạch", "Béo phì"]
-  },
-  {
-    id: 2,
-    name: "Soup rau củ",
-    image: "/lovable-uploads/6fe7589b-6114-4c7e-9ee1-e97994f6ff38.png",
-    description: "Soup rau củ ít calo, giàu chất xơ",
-    recipe: "Cà rốt, súp lơ, cần tây, khoai tây, nấu với nước dùng gà",
-    diseaseTypes: ["Béo phì", "Cao huyết áp"]
-  },
-  // Thêm các món ăn khác tương tự...
-];
+interface Food {
+  id: number;
+  name: string;
+  image_url: string;
+  description: string;
+  recipe: string;
+  categories: string[];
+}
 
 const KnowledgeBase = () => {
-  const [selectedDisease, setSelectedDisease] = useState<string>("");
-  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [foods, setFoods] = useState<Food[]>([]);
+  const { toast } = useToast();
 
-  const filteredFoods = selectedDisease
-    ? foodItems.filter(food => food.diseaseTypes.includes(selectedDisease))
-    : foodItems;
+  useEffect(() => {
+    fetchCategories();
+    fetchFoods();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*');
+      
+      if (error) throw error;
+      
+      if (data) {
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách loại bệnh. Vui lòng thử lại sau.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const fetchFoods = async () => {
+    try {
+      // Fetch foods with their categories
+      const { data, error } = await supabase
+        .from('foods')
+        .select(`
+          *,
+          food_categories!inner (
+            categories!inner(name)
+          )
+        `);
+
+      if (error) throw error;
+
+      if (data) {
+        // Transform the data to match our Food interface
+        const transformedFoods = data.map(food => ({
+          id: food.id,
+          name: food.name,
+          image_url: food.image_url || '/lovable-uploads/6fe7589b-6114-4c7e-9ee1-e97994f6ff38.png', // Fallback image
+          description: food.description,
+          recipe: food.recipe,
+          categories: food.food_categories.map((fc: any) => fc.categories.name)
+        }));
+        setFoods(transformedFoods);
+      }
+    } catch (error) {
+      console.error('Error fetching foods:', error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách món ăn. Vui lòng thử lại sau.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const filteredFoods = selectedCategory
+    ? foods.filter(food => food.categories.includes(selectedCategory))
+    : foods;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -70,23 +114,23 @@ const KnowledgeBase = () => {
           <div className="flex flex-wrap gap-2">
             <button
               className={`px-4 py-2 rounded-full text-sm font-medium transition-colors
-                ${!selectedDisease 
+                ${!selectedCategory 
                   ? "bg-primary text-white" 
                   : "bg-white text-gray-600 hover:bg-gray-100"}`}
-              onClick={() => setSelectedDisease("")}
+              onClick={() => setSelectedCategory("")}
             >
               Tất cả
             </button>
-            {diseaseCategories.map((disease) => (
+            {categories.map((category) => (
               <button
-                key={disease}
+                key={category.id}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors
-                  ${selectedDisease === disease 
+                  ${selectedCategory === category.name 
                     ? "bg-primary text-white" 
                     : "bg-white text-gray-600 hover:bg-gray-100"}`}
-                onClick={() => setSelectedDisease(disease)}
+                onClick={() => setSelectedCategory(category.name)}
               >
-                {disease}
+                {category.name}
               </button>
             ))}
           </div>
@@ -102,7 +146,7 @@ const KnowledgeBase = () => {
             >
               <div className="aspect-square relative">
                 <img
-                  src={food.image}
+                  src={food.image_url}
                   alt={food.name}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
@@ -126,7 +170,7 @@ const KnowledgeBase = () => {
               <div className="mt-4">
                 <div className="aspect-video relative mb-4">
                   <img
-                    src={selectedFood.image}
+                    src={selectedFood.image_url}
                     alt={selectedFood.name}
                     className="absolute inset-0 w-full h-full object-cover rounded-lg"
                   />
@@ -143,12 +187,12 @@ const KnowledgeBase = () => {
                   <div>
                     <h4 className="font-medium text-gray-900 mb-1">Phù hợp với:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {selectedFood.diseaseTypes.map((disease) => (
+                      {selectedFood.categories.map((category) => (
                         <span
-                          key={disease}
+                          key={category}
                           className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
                         >
-                          {disease}
+                          {category}
                         </span>
                       ))}
                     </div>

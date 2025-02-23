@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       content: {
         Row: {
           content: string | null
@@ -124,6 +148,69 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      food_categories: {
+        Row: {
+          category_id: number
+          created_at: string | null
+          food_id: number
+        }
+        Insert: {
+          category_id: number
+          created_at?: string | null
+          food_id: number
+        }
+        Update: {
+          category_id?: number
+          created_at?: string | null
+          food_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_categories_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      foods: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: number
+          image_url: string | null
+          name: string
+          recipe: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          image_url?: string | null
+          name: string
+          recipe?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          image_url?: string | null
+          name?: string
+          recipe?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       health_record: {
         Row: {
