@@ -1,76 +1,30 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { CategoryFilter } from "@/components/knowledge-base/CategoryFilter";
 import { FoodGrid } from "@/components/knowledge-base/FoodGrid";
 import { FoodDetailDialog } from "@/components/knowledge-base/FoodDetailDialog";
-import { type Category, type Food } from "@/types/knowledge-base";
+import { type Food } from "@/types/knowledge-base";
+import { useCategories } from "@/hooks/use-categories";
+import { useFoods } from "@/hooks/use-foods";
 
 const KnowledgeBase = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [foods, setFoods] = useState<Food[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchCategories();
-    fetchFoods();
-  }, []);
+  const { data: categories = [], isError: isCategoriesError } = useCategories();
+  const { data: foods = [], isError: isFoodsError } = useFoods();
 
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase.from('categories').select('*');
-      if (error) throw error;
-      if (data) {
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách loại bệnh. Vui lòng thử lại sau.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const fetchFoods = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('foods')
-        .select(`
-          *,
-          food_categories!inner (
-            categories!inner(name)
-          )
-        `);
-
-      if (error) throw error;
-
-      if (data) {
-        const transformedFoods = data.map(food => ({
-          id: food.id,
-          name: food.name,
-          image_url: food.image_url || '/lovable-uploads/6fe7589b-6114-4c7e-9ee1-e97994f6ff38.png',
-          description: food.description,
-          recipe: food.recipe,
-          categories: food.food_categories.map((fc: any) => fc.categories.name)
-        }));
-        setFoods(transformedFoods);
-      }
-    } catch (error) {
-      console.error('Error fetching foods:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách món ăn. Vui lòng thử lại sau.",
-        variant: "destructive"
-      });
-    }
-  };
+  if (isCategoriesError || isFoodsError) {
+    toast({
+      title: "Lỗi",
+      description: "Không thể tải dữ liệu. Vui lòng thử lại sau.",
+      variant: "destructive"
+    });
+  }
 
   const filteredFoods = selectedCategory
     ? foods.filter(food => food.categories.includes(selectedCategory))

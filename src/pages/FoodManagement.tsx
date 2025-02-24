@@ -1,38 +1,19 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { FoodForm } from "@/components/food-management/FoodForm";
-import { type Category } from "@/types/knowledge-base";
+import { useCategories } from "@/hooks/use-categories";
 
 const FoodManagement = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
   const { toast } = useToast();
+  const { data: categories = [], isError } = useCategories();
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*');
-      
-      if (error) throw error;
-      
-      if (data) {
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể tải danh sách loại bệnh. Vui lòng thử lại sau.",
-        variant: "destructive"
-      });
-    }
-  };
+  if (isError) {
+    toast({
+      title: "Lỗi",
+      description: "Không thể tải danh sách loại bệnh. Vui lòng thử lại sau.",
+      variant: "destructive"
+    });
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
