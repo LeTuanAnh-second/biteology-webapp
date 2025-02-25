@@ -117,38 +117,6 @@ export type Database = {
           },
         ]
       }
-      food: {
-        Row: {
-          description: string | null
-          id: number
-          name: string
-          recipes: string | null
-          type_of_disease_id: number | null
-        }
-        Insert: {
-          description?: string | null
-          id?: never
-          name: string
-          recipes?: string | null
-          type_of_disease_id?: number | null
-        }
-        Update: {
-          description?: string | null
-          id?: never
-          name?: string
-          recipes?: string | null
-          type_of_disease_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_food_typeofdisease"
-            columns: ["type_of_disease_id"]
-            isOneToOne: false
-            referencedRelation: "type_of_disease"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       food_categories: {
         Row: {
           category_id: number
