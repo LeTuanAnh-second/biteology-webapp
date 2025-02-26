@@ -1,5 +1,5 @@
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const HealthTracking = () => {
@@ -15,6 +15,11 @@ const HealthTracking = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-yellow-600" />
+          <p className="text-yellow-600">Tính năng đang được phát triển</p>
+        </div>
+
         <h1 className="text-3xl font-bold mb-6">Theo dõi chỉ số sức khỏe</h1>
         <div className="grid gap-6">
           <div className="p-6 rounded-lg border bg-card">
@@ -22,7 +27,7 @@ const HealthTracking = () => {
             <p className="text-muted-foreground mb-4">
               Ghi lại và theo dõi cân nặng của bạn theo thời gian.
             </p>
-            <button className="primary-button">Thêm chỉ số</button>
+            <button className="primary-button" disabled>Thêm chỉ số</button>
           </div>
 
           <div className="p-6 rounded-lg border bg-card">
@@ -30,7 +35,7 @@ const HealthTracking = () => {
             <p className="text-muted-foreground mb-4">
               Ghi lại và theo dõi chỉ số đường huyết của bạn.
             </p>
-            <button className="primary-button">Thêm chỉ số</button>
+            <button className="primary-button" disabled>Thêm chỉ số</button>
           </div>
         </div>
       </main>
