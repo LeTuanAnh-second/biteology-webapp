@@ -14,9 +14,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 
-interface DiseaseType {
+interface DiseaseCategory {
   id: number;
   name: string;
 }
@@ -28,8 +29,8 @@ const Profile = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [diseaseTypeId, setDiseaseTypeId] = useState<string>("");
-  const [diseaseTypes, setDiseaseTypes] = useState<DiseaseType[]>([]);
+  const [categories, setCategories] = useState<DiseaseCategory[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -37,7 +38,7 @@ const Profile = () => {
 
       try {
         const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
+          .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
@@ -47,16 +48,26 @@ const Profile = () => {
         if (profile) {
           setFullName(profile.full_name || "");
           setPhoneNumber(profile.phone_number || "");
-          setDiseaseTypeId(profile.disease_type_id?.toString() || "");
         }
 
-        const { data: diseases, error: diseasesError } = await supabase
-          .from('type_of_disease')
+        // Load categories
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
           .select('*');
 
-        if (diseasesError) throw diseasesError;
+        if (categoriesError) throw categoriesError;
+        setCategories(categoriesData);
 
-        setDiseaseTypes(diseases);
+        // Load user's selected categories
+        const { data: userCategories, error: userCategoriesError } = await supabase
+          .from('user_disease_categories')
+          .select('category_id')
+          .eq('user_id', user.id);
+
+        if (userCategoriesError) throw userCategoriesError;
+
+        const selectedIds = userCategories.map(uc => uc.category_id);
+        setSelectedCategories(selectedIds);
       } catch (error) {
         console.error('Error loading profile:', error);
         toast({
@@ -76,17 +87,39 @@ const Profile = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase
-        .from('user_profiles')
+      // Update profile information
+      const { error: profileError } = await supabase
+        .from('profiles')
         .update({
           full_name: fullName,
           phone_number: phoneNumber,
-          disease_type_id: diseaseTypeId ? parseInt(diseaseTypeId) : null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Delete existing category associations
+      const { error: deleteError } = await supabase
+        .from('user_disease_categories')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new category associations
+      if (selectedCategories.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_disease_categories')
+          .insert(
+            selectedCategories.map(categoryId => ({
+              user_id: user.id,
+              category_id: categoryId
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: "Thành công",
@@ -103,6 +136,14 @@ const Profile = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleCategory = (categoryId: number) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
   };
 
   return (
@@ -143,20 +184,25 @@ const Profile = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="diseaseType">Loại bệnh</Label>
-              <Select value={diseaseTypeId} onValueChange={setDiseaseTypeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại bệnh" />
-                </SelectTrigger>
-                <SelectContent>
-                  {diseaseTypes.map((disease) => (
-                    <SelectItem key={disease.id} value={disease.id.toString()}>
-                      {disease.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              <Label>Loại bệnh</Label>
+              <div className="grid grid-cols-2 gap-4">
+                {categories.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`category-${category.id}`}
+                      checked={selectedCategories.includes(category.id)}
+                      onCheckedChange={() => toggleCategory(category.id)}
+                    />
+                    <label
+                      htmlFor={`category-${category.id}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {category.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <button
@@ -174,3 +220,4 @@ const Profile = () => {
 };
 
 export default Profile;
+

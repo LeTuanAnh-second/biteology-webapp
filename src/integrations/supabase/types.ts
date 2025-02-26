@@ -322,6 +322,32 @@ export type Database = {
         }
         Relationships: []
       }
+      user_disease_categories: {
+        Row: {
+          category_id: number
+          created_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category_id: number
+          created_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category_id?: number
+          created_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_disease_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar: string | null
