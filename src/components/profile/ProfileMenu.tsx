@@ -15,22 +15,47 @@ const ProfileMenu = () => {
   const { user, logout } = useAuth();
   const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
 
-  useEffect(() => {
-    async function getProfile() {
-      if (!user?.id) return;
-      
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single();
-      
-      if (!error && data) {
-        setProfile(data);
-      }
+  const fetchProfile = async () => {
+    if (!user?.id) return;
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    if (!error && data) {
+      setProfile(data);
     }
+  };
 
-    getProfile();
+  // Listen for realtime changes on the user_profiles table
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Initial fetch
+    fetchProfile();
+
+    // Subscribe to changes
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        () => {
+          fetchProfile();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, [user?.id]);
 
   const displayName = profile?.full_name || user?.email;
