@@ -1,10 +1,10 @@
-
 import { BookOpen, Activity, Library } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import ProfileMenu from "@/components/profile/ProfileMenu";
 
 const Index = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -17,14 +17,7 @@ const Index = () => {
           </div>
           <div className="flex items-center space-x-4">
             {user ? (
-              <>
-                <Link to="/dashboard" className="secondary-button">
-                  Dashboard
-                </Link>
-                <button onClick={logout} className="secondary-button">
-                  Đăng xuất
-                </button>
-              </>
+              <ProfileMenu />
             ) : (
               <>
                 <Link to="/login" className="secondary-button">
@@ -123,4 +116,3 @@ const Index = () => {
 };
 
 export default Index;
-

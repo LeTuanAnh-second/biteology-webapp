@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import HealthTracking from "./pages/HealthTracking";
 import NutritionAdvice from "./pages/NutritionAdvice";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,14 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route
+              path="/profile"
+              element={
+                <PrivateRoute>
+                  <Profile />
+                </PrivateRoute>
+              }
+            />
             <Route
               path="/health-tracking"
               element={
