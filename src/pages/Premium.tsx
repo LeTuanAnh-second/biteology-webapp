@@ -77,7 +77,7 @@ const Premium = () => {
       
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-check-subscription?userId=${user.id}`
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-check-subscription?userId=${user.id}`
         );
         const data = await response.json();
         setSubscription(data);
@@ -103,7 +103,7 @@ const Premium = () => {
     
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-verify-payment?orderId=${orderId}&resultCode=0&check=true`
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment?orderId=${orderId}`
       );
       
       const data = await response.json();
@@ -147,7 +147,7 @@ const Premium = () => {
     setIsProcessing(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-create-order`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-create-order`,
         {
           method: 'POST',
           headers: {

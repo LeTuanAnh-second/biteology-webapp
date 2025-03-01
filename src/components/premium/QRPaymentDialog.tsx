@@ -27,7 +27,7 @@ export const QRPaymentDialog = ({
         <DialogHeader>
           <DialogTitle>Quét mã QR để thanh toán</DialogTitle>
           <DialogDescription>
-            Sử dụng ứng dụng MoMo để quét mã QR bên dưới.
+            Sử dụng ứng dụng ngân hàng của bạn để quét mã QR bên dưới.
           </DialogDescription>
         </DialogHeader>
         
@@ -49,7 +49,7 @@ export const QRPaymentDialog = ({
                   <div className="border p-2 rounded-lg mb-4">
                     <img 
                       src={qrPaymentData.qrCodeUrl} 
-                      alt="Mã QR thanh toán MoMo" 
+                      alt="Mã QR thanh toán PayOS" 
                       className="w-64 h-64 object-contain"
                     />
                   </div>

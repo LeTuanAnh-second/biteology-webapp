@@ -17,11 +17,9 @@ const PaymentResult = () => {
     // Validate the payment result
     const validatePayment = async () => {
       try {
-        // MoMo returns a resultCode parameter, 0 means success
-        const resultCode = searchParams.get('resultCode') || '';
-        const orderId = searchParams.get('orderId') || '';
+        const orderCode = searchParams.get('orderCode') || '';
         
-        if (!orderId) {
+        if (!orderCode) {
           setStatus('error');
           setMessage("Không tìm thấy thông tin đơn hàng. Vui lòng liên hệ với chúng tôi để được hỗ trợ.");
           return;
@@ -29,7 +27,7 @@ const PaymentResult = () => {
         
         // Call the backend to verify the payment
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-verify-payment?orderId=${orderId}&resultCode=${resultCode}`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment?orderId=${orderCode}`,
           {
             method: 'GET',
             headers: {

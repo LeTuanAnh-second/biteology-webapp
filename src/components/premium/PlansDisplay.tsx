@@ -63,7 +63,7 @@ export const PlansDisplay = ({
               Đang xử lý...
             </>
           ) : (
-            'Thanh toán qua MoMo'
+            'Thanh toán với PayOS'
           )}
         </button>
       </div>
