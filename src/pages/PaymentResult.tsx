@@ -14,16 +14,33 @@ const PaymentResult = () => {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    // In a real application, you would validate the payment result
-    // For demo purposes, we'll simulate a validation process
+    // Validate the payment result
     const validatePayment = async () => {
       try {
-        const resultCode = searchParams.get('status') || '1'; // Default to success for demo
+        // MoMo returns a resultCode parameter, 0 means success
+        const resultCode = searchParams.get('resultCode') || '';
+        const orderId = searchParams.get('orderId') || '';
         
-        // Simulate API validation
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (!orderId) {
+          setStatus('error');
+          setMessage("Không tìm thấy thông tin đơn hàng. Vui lòng liên hệ với chúng tôi để được hỗ trợ.");
+          return;
+        }
         
-        if (resultCode === '1') {
+        // Call the backend to verify the payment
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-verify-payment?orderId=${orderId}&resultCode=${resultCode}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }
+        );
+        
+        const data = await response.json();
+        
+        if (data.success) {
           setStatus('success');
           setMessage("Thanh toán thành công! Tài khoản của bạn đã được nâng cấp lên Premium.");
           toast({
@@ -32,7 +49,7 @@ const PaymentResult = () => {
           });
         } else {
           setStatus('error');
-          setMessage("Thanh toán thất bại. Vui lòng thử lại sau hoặc liên hệ với chúng tôi để được hỗ trợ.");
+          setMessage(data.message || "Thanh toán thất bại. Vui lòng thử lại sau hoặc liên hệ với chúng tôi để được hỗ trợ.");
           toast({
             variant: "destructive",
             title: "Thanh toán thất bại",

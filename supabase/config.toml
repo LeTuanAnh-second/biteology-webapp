@@ -21,9 +21,10 @@ api_url = "http://127.0.0.1:54321"
 enabled = true
 
 [functions]
-[functions.zalopay-create-order]
+[functions.momo-create-order]
 verify_jwt = false
-[functions.zalopay-callback]
+[functions.momo-verify-payment]
 verify_jwt = false
-[functions.zalopay-check-subscription]
+[functions.momo-check-subscription]
 verify_jwt = false
+

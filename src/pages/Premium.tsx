@@ -64,7 +64,7 @@ const Premium = () => {
       
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zalopay-check-subscription?userId=${user.id}`
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-check-subscription?userId=${user.id}`
         );
         const data = await response.json();
         setSubscription(data);
@@ -94,7 +94,7 @@ const Premium = () => {
     setIsProcessing(true);
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/zalopay-create-order`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-create-order`,
         {
           method: 'POST',
           headers: {
@@ -113,8 +113,8 @@ const Premium = () => {
         throw new Error(result.error || 'Không thể tạo đơn hàng');
       }
 
-      // Redirect to ZaloPay payment page
-      window.location.href = result.data.order_url;
+      // Redirect to MoMo payment page
+      window.location.href = result.data.payUrl;
     } catch (error) {
       console.error('Error creating order:', error);
       toast({
@@ -248,7 +248,7 @@ const Premium = () => {
                     Đang xử lý...
                   </>
                 ) : (
-                  'Thanh toán qua ZaloPay'
+                  'Thanh toán qua MoMo'
                 )}
               </button>
             </div>
