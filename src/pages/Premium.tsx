@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { Json } from "@/integrations/supabase/types";
 
 interface PremiumPlan {
   id: string;
@@ -12,7 +13,7 @@ interface PremiumPlan {
   description: string;
   price: number;
   duration_days: number;
-  features: Record<string, string>;
+  features: Json;
 }
 
 interface Subscription {
@@ -142,6 +143,14 @@ const Premium = () => {
     }).format(date);
   };
 
+  // Helper function to safely get feature value
+  const getFeatureValue = (features: Json, key: string): string => {
+    if (typeof features === 'object' && features !== null && key in features) {
+      return String(features[key]);
+    }
+    return '';
+  };
+
   return (
     <div className="min-h-screen">
       <header className="border-b">
@@ -202,12 +211,13 @@ const Premium = () => {
                   </div>
                   
                   <ul className="space-y-2 mb-6 flex-grow">
-                    {Object.entries(plan.features || {}).map(([key, feature]) => (
-                      <li key={key} className="flex items-start">
-                        <Check className="h-5 w-5 text-primary shrink-0 mr-2" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
+                    {plan.features && typeof plan.features === 'object' && 
+                      Object.keys(plan.features).map((key) => (
+                        <li key={key} className="flex items-start">
+                          <Check className="h-5 w-5 text-primary shrink-0 mr-2" />
+                          <span>{getFeatureValue(plan.features, key)}</span>
+                        </li>
+                      ))}
                   </ul>
                   
                   <button
