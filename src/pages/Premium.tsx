@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, Loader2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -108,8 +109,10 @@ const Premium = () => {
       
       if (data.success) {
         setPaymentStatus('success');
-        clearInterval(checkingInterval as number);
-        setCheckingInterval(null);
+        if (checkingInterval) {
+          clearInterval(checkingInterval);
+          setCheckingInterval(null);
+        }
         
         toast({
           title: "Thanh toán thành công",
