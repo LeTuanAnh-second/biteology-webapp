@@ -1,1 +1,29 @@
+
 project_id = "ijvtkufzaweqzwczpvgr"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1:54321"
+
+[auth]
+enabled = true
+
+[functions]
+[functions.zalopay-create-order]
+verify_jwt = false
+[functions.zalopay-callback]
+verify_jwt = false
+[functions.zalopay-check-subscription]
+verify_jwt = false

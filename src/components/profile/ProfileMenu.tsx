@@ -1,5 +1,5 @@
 
-import { LogOut, User, ChevronDown } from "lucide-react";
+import { LogOut, User, ChevronDown, Crown } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DropdownMenu,
@@ -13,14 +13,14 @@ import { supabase } from "@/lib/supabase";
 
 const ProfileMenu = () => {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string | null; is_premium?: boolean } | null>(null);
 
   const fetchProfile = async () => {
     if (!user?.id) return;
     
     const { data, error } = await supabase
-      .from('user_profiles')
-      .select('full_name')
+      .from('profiles')
+      .select('full_name, is_premium')
       .eq('id', user.id)
       .single();
     
@@ -29,7 +29,7 @@ const ProfileMenu = () => {
     }
   };
 
-  // Listen for realtime changes on the user_profiles table
+  // Listen for realtime changes on the profiles table
   useEffect(() => {
     if (!user?.id) return;
 
@@ -44,7 +44,7 @@ const ProfileMenu = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'user_profiles',
+          table: 'profiles',
           filter: `id=eq.${user.id}`,
         },
         () => {
@@ -64,6 +64,9 @@ const ProfileMenu = () => {
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent">
         <span className="max-w-[200px] truncate">{displayName}</span>
+        {profile?.is_premium && (
+          <Crown className="h-4 w-4 text-yellow-500" />
+        )}
         <ChevronDown className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
@@ -71,6 +74,12 @@ const ProfileMenu = () => {
           <Link to="/profile" className="flex items-center gap-2 w-full">
             <User className="h-4 w-4" />
             <span>Cập nhật thông tin</span>
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Link to="/premium" className="flex items-center gap-2 w-full">
+            <Crown className="h-4 w-4" />
+            <span>{profile?.is_premium ? 'Quản lý Premium' : 'Nâng cấp Premium'}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={logout}>
