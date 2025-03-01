@@ -87,6 +87,7 @@ Deno.serve(async (req) => {
     })
 
     // Prepare order data for MoMo
+    // Thay đổi requestType thành "captureWallet" để tạo mã QR
     const rawSignature = `accessKey=${MOMO_ACCESS_KEY}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${MOMO_PARTNER_CODE}&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=captureWallet`
     
     // Generate signature
@@ -170,7 +171,10 @@ Deno.serve(async (req) => {
           success: true,
           data: {
             orderId: orderId,
-            payUrl: momoData.payUrl
+            qrCodeUrl: momoData.qrCodeUrl,  // Trả về URL của mã QR thay vì payUrl
+            amount: amount,
+            orderInfo: orderInfo,
+            status: 'pending'
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

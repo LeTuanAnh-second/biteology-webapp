@@ -1,11 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { Json } from "@/integrations/supabase/types";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface PremiumPlan {
   id: string;
@@ -25,6 +26,14 @@ interface Subscription {
   };
 }
 
+interface QRPaymentData {
+  orderId: string;
+  qrCodeUrl: string;
+  amount: number;
+  orderInfo: string;
+  status: string;
+}
+
 const Premium = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -34,6 +43,10 @@ const Premium = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [qrPaymentData, setQRPaymentData] = useState<QRPaymentData | null>(null);
+  const [showQRDialog, setShowQRDialog] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
+  const [checkingInterval, setCheckingInterval] = useState<number | null>(null);
 
   // Fetch premium plans
   useEffect(() => {
@@ -77,6 +90,47 @@ const Premium = () => {
     checkSubscription();
   }, [user, toast]);
 
+  // Effect để kiểm tra trạng thái thanh toán
+  useEffect(() => {
+    return () => {
+      // Dọn dẹp interval khi component unmount
+      if (checkingInterval) {
+        clearInterval(checkingInterval);
+      }
+    };
+  }, [checkingInterval]);
+
+  // Kiểm tra trạng thái thanh toán
+  const checkPaymentStatus = async (orderId: string) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/momo-verify-payment?orderId=${orderId}&resultCode=0&check=true`
+      );
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setPaymentStatus('success');
+        clearInterval(checkingInterval as number);
+        setCheckingInterval(null);
+        
+        toast({
+          title: "Thanh toán thành công",
+          description: "Bạn đã nâng cấp tài khoản lên Premium thành công."
+        });
+        
+        setTimeout(() => {
+          setShowQRDialog(false);
+          navigate('/');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+    }
+  };
+
   const handleSelectPlan = (planId: string) => {
     setSelectedPlan(planId);
   };
@@ -113,8 +167,18 @@ const Premium = () => {
         throw new Error(result.error || 'Không thể tạo đơn hàng');
       }
 
-      // Redirect to MoMo payment page
-      window.location.href = result.data.payUrl;
+      // Hiển thị mã QR thanh toán
+      setQRPaymentData(result.data);
+      setShowQRDialog(true);
+      setPaymentStatus('pending');
+      
+      // Bắt đầu kiểm tra trạng thái thanh toán mỗi 5 giây
+      const intervalId = setInterval(() => {
+        checkPaymentStatus(result.data.orderId);
+      }, 5000);
+      
+      setCheckingInterval(intervalId);
+      
     } catch (error) {
       console.error('Error creating order:', error);
       toast({
@@ -255,6 +319,79 @@ const Premium = () => {
           </>
         )}
       </main>
+
+      {/* Dialog hiển thị mã QR để thanh toán */}
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quét mã QR để thanh toán</DialogTitle>
+            <DialogDescription>
+              Sử dụng ứng dụng MoMo để quét mã QR bên dưới.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col items-center py-4">
+            {paymentStatus === 'pending' && (
+              <>
+                {qrPaymentData && (
+                  <>
+                    <div className="mb-4 text-center">
+                      <p className="font-medium">{qrPaymentData.orderInfo}</p>
+                      <p className="text-xl font-bold mt-1">
+                        {new Intl.NumberFormat('vi-VN', {
+                          style: 'currency',
+                          currency: 'VND'
+                        }).format(qrPaymentData.amount)}
+                      </p>
+                    </div>
+                    
+                    <div className="border p-2 rounded-lg mb-4">
+                      <img 
+                        src={qrPaymentData.qrCodeUrl} 
+                        alt="Mã QR thanh toán MoMo" 
+                        className="w-64 h-64 object-contain"
+                      />
+                    </div>
+                    
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Mã đơn hàng: {qrPaymentData.orderId}
+                    </p>
+                    
+                    <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-2 rounded-md">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Đang chờ thanh toán...
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+            
+            {paymentStatus === 'success' && (
+              <div className="text-center">
+                <div className="h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="h-10 w-10 text-green-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Thanh toán thành công!</h3>
+                <p className="text-muted-foreground">
+                  Tài khoản của bạn đã được nâng cấp lên Premium.
+                </p>
+              </div>
+            )}
+            
+            {paymentStatus === 'failed' && (
+              <div className="text-center">
+                <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <X className="h-10 w-10 text-red-600" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Thanh toán thất bại</h3>
+                <p className="text-muted-foreground">
+                  Đã xảy ra lỗi trong quá trình thanh toán. Vui lòng thử lại.
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
