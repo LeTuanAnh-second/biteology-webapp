@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { ArrowLeft, Check, Loader2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -46,9 +45,8 @@ const Premium = () => {
   const [qrPaymentData, setQRPaymentData] = useState<QRPaymentData | null>(null);
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
-  const [checkingInterval, setCheckingInterval] = useState<number | null>(null);
+  const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Fetch premium plans
   useEffect(() => {
     async function fetchPlans() {
       setIsLoading(true);
@@ -90,17 +88,14 @@ const Premium = () => {
     checkSubscription();
   }, [user, toast]);
 
-  // Effect để kiểm tra trạng thái thanh toán
   useEffect(() => {
     return () => {
-      // Dọn dẹp interval khi component unmount
       if (checkingInterval) {
         clearInterval(checkingInterval);
       }
     };
   }, [checkingInterval]);
 
-  // Kiểm tra trạng thái thanh toán
   const checkPaymentStatus = async (orderId: string) => {
     if (!user) return;
     
@@ -167,12 +162,10 @@ const Premium = () => {
         throw new Error(result.error || 'Không thể tạo đơn hàng');
       }
 
-      // Hiển thị mã QR thanh toán
       setQRPaymentData(result.data);
       setShowQRDialog(true);
       setPaymentStatus('pending');
       
-      // Bắt đầu kiểm tra trạng thái thanh toán mỗi 5 giây
       const intervalId = setInterval(() => {
         checkPaymentStatus(result.data.orderId);
       }, 5000);
@@ -207,7 +200,6 @@ const Premium = () => {
     }).format(date);
   };
 
-  // Helper function to safely get feature value
   const getFeatureValue = (features: Json, key: string): string => {
     if (typeof features === 'object' && features !== null && key in features) {
       return String(features[key]);
@@ -320,7 +312,6 @@ const Premium = () => {
         )}
       </main>
 
-      {/* Dialog hiển thị mã QR để thanh toán */}
       <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
