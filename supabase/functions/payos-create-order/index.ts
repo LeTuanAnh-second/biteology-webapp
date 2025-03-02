@@ -92,6 +92,19 @@ async function createOrder(planId: string, userId: string) {
       })
     });
     
+    if (!payosResponse.ok) {
+      console.error('PayOS API error:', payosResponse.status, payosResponse.statusText);
+      const errorBody = await payosResponse.text();
+      console.error('PayOS error response:', errorBody);
+      
+      await supabase
+        .from('premium_orders')
+        .update({ status: 'failed' })
+        .eq('id', orderCode);
+        
+      return { success: false, error: 'Failed to create payment with PayOS' };
+    }
+    
     const payosResult = await payosResponse.json();
     console.log('PayOS response:', payosResult);
     

@@ -22,6 +22,7 @@ export function usePaymentProcess(
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
 
+  // Đảm bảo xóa interval khi component unmount
   useEffect(() => {
     return () => {
       if (checkingInterval) {
@@ -34,11 +35,21 @@ export function usePaymentProcess(
     if (!user) return;
     
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment?orderId=${orderId}`
-      );
+      // Đảm bảo URL đúng định dạng
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment`;
+      console.log("Checking payment status at:", apiUrl);
+      
+      const response = await fetch(`${apiUrl}?orderId=${orderId}`);
+      
+      if (!response.ok) {
+        console.error('API response not OK:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        return;
+      }
       
       const data = await response.json();
+      console.log("Payment status response:", data);
       
       if (data.success) {
         setPaymentStatus('success');
@@ -73,21 +84,30 @@ export function usePaymentProcess(
 
     setIsProcessing(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-create-order`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            planId: selectedPlan,
-            userId: user.id
-          })
-        }
-      );
+      // Đảm bảo URL đúng định dạng
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-create-order`;
+      console.log("Creating order at:", apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: selectedPlan,
+          userId: user.id
+        })
+      });
+      
+      if (!response.ok) {
+        console.error('API response not OK:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error('Network response was not ok');
+      }
 
       const result = await response.json();
+      console.log("Order creation response:", result);
       
       if (!result.success) {
         throw new Error(result.error || 'Không thể tạo đơn hàng');
