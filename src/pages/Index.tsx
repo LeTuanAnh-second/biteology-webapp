@@ -1,4 +1,4 @@
-import { BookOpen, Activity, Library } from "lucide-react";
+import { BookOpen, Activity, Library, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import ProfileMenu from "@/components/profile/ProfileMenu";
@@ -17,7 +17,16 @@ const Index = () => {
           </div>
           <div className="flex items-center space-x-4">
             {user ? (
-              <ProfileMenu />
+              <>
+                <Link 
+                  to="/premium" 
+                  className="flex items-center text-amber-500 hover:text-amber-600 font-medium bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <Sparkles className="h-4 w-4 mr-1.5" />
+                  Nâng cấp Premium
+                </Link>
+                <ProfileMenu />
+              </>
             ) : (
               <>
                 <Link to="/login" className="secondary-button">
@@ -50,12 +59,26 @@ const Index = () => {
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <button className="primary-button">
-                Bắt đầu miễn phí
-              </button>
-              <button className="secondary-button">
-                Tìm hiểu thêm
-              </button>
+              {user ? (
+                <>
+                  <Link to="/health-tracking" className="primary-button">
+                    Bắt đầu ngay
+                  </Link>
+                  <Link to="/premium" className="flex items-center secondary-button">
+                    <Sparkles className="h-4 w-4 mr-2 text-amber-500" />
+                    Nâng cấp Premium
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/register" className="primary-button">
+                    Bắt đầu miễn phí
+                  </Link>
+                  <button className="secondary-button">
+                    Tìm hiểu thêm
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </section>
