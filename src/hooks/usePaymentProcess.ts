@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { ToastAction } from "@/components/ui/toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QRPaymentData {
   orderId: string;
@@ -35,11 +36,25 @@ export function usePaymentProcess(
     if (!user) return;
     
     try {
+      // Lấy token JWT của người dùng hiện tại
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('No access token available');
+        return;
+      }
+      
       // Sử dụng URL cố định thay vì biến môi trường không xác định
       const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-verify-payment`;
       console.log("Checking payment status at:", apiUrl);
       
-      const response = await fetch(`${apiUrl}?orderId=${orderId}`);
+      const response = await fetch(`${apiUrl}?orderId=${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       if (!response.ok) {
         console.error('API response not OK:', response.status, response.statusText);
@@ -84,20 +99,39 @@ export function usePaymentProcess(
 
     setIsProcessing(true);
     try {
+      // Lấy token JWT của người dùng hiện tại
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('No access token available');
+        toast({
+          variant: "destructive",
+          title: "Lỗi xác thực",
+          description: "Không thể xác thực người dùng. Vui lòng đăng nhập lại."
+        });
+        setIsProcessing(false);
+        return;
+      }
+      
       // Sử dụng URL cố định thay vì biến môi trường không xác định
       const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
       console.log("Creating order at:", apiUrl);
+      console.log("Auth token available:", !!token);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           planId: selectedPlan,
           userId: user.id
         })
       });
+      
+      console.log("Response status:", response.status, response.statusText);
       
       if (!response.ok) {
         console.error('API response not OK:', response.status, response.statusText);

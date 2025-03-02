@@ -4,6 +4,7 @@ import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Check, X, Loader2, Home } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const PaymentResult = () => {
   const [searchParams] = useSearchParams();
@@ -25,16 +26,38 @@ const PaymentResult = () => {
           return;
         }
         
+        // Lấy token JWT của người dùng hiện tại
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.error('No access token available for payment verification');
+          setStatus('error');
+          setMessage("Lỗi xác thực người dùng. Vui lòng đăng nhập lại.");
+          return;
+        }
+        
         // Call the backend to verify the payment
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment?orderId=${orderCode}`,
+          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-verify-payment?orderId=${orderCode}`,
           {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
             }
           }
         );
+        
+        if (!response.ok) {
+          console.error('API response not OK:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('Payment verification error:', errorText);
+          
+          setStatus('error');
+          setMessage("Không thể xác minh trạng thái thanh toán. Vui lòng liên hệ với chúng tôi.");
+          return;
+        }
         
         const data = await response.json();
         

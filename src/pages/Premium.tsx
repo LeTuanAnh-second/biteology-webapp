@@ -70,13 +70,30 @@ const Premium = () => {
       if (!user) return;
       
       try {
+        // Lấy token JWT của người dùng hiện tại
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        
+        if (!token) {
+          console.error('No access token available for subscription check');
+          return;
+        }
+        
         // Sử dụng URL cố định thay vì biến môi trường không xác định
         const response = await fetch(
-          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`
+          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
         );
         
         if (!response.ok) {
           console.error('API response not OK:', response.status, response.statusText);
+          const errorText = await response.text();
+          console.error('Subscription check error:', errorText);
           return;
         }
         
