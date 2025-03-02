@@ -35,8 +35,8 @@ export function usePaymentProcess(
     if (!user) return;
     
     try {
-      // Đảm bảo URL đúng định dạng
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-verify-payment`;
+      // Sử dụng URL cố định thay vì biến môi trường không xác định
+      const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-verify-payment`;
       console.log("Checking payment status at:", apiUrl);
       
       const response = await fetch(`${apiUrl}?orderId=${orderId}`);
@@ -84,8 +84,8 @@ export function usePaymentProcess(
 
     setIsProcessing(true);
     try {
-      // Đảm bảo URL đúng định dạng
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-create-order`;
+      // Sử dụng URL cố định thay vì biến môi trường không xác định
+      const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
       console.log("Creating order at:", apiUrl);
       
       const response = await fetch(apiUrl, {

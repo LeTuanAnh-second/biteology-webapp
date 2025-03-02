@@ -70,9 +70,16 @@ const Premium = () => {
       if (!user) return;
       
       try {
+        // Sử dụng URL cố định thay vì biến môi trường không xác định
         const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payos-check-subscription?userId=${user.id}`
+          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`
         );
+        
+        if (!response.ok) {
+          console.error('API response not OK:', response.status, response.statusText);
+          return;
+        }
+        
         const data = await response.json();
         setSubscription(data);
       } catch (error) {

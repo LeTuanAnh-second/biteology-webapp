@@ -30,6 +30,10 @@ function generateOrderCode() {
 async function createOrder(planId: string, userId: string) {
   try {
     console.log(`Creating order for plan ${planId} and user ${userId}`);
+    console.log("Environment variables:", {
+      supabaseUrl,
+      hasSupabaseKey: !!supabaseKey,
+    });
     
     // Fetch plan details
     const { data: plan, error: planError } = await supabase
@@ -46,6 +50,13 @@ async function createOrder(planId: string, userId: string) {
     const orderCode = generateOrderCode();
     const amount = plan.price;
     const orderInfo = `Nâng cấp tài khoản Premium - ${plan.name}`;
+    
+    console.log("Order details:", {
+      orderCode,
+      amount,
+      orderInfo,
+      planName: plan.name
+    });
     
     // Create order record in the database first
     const { error: orderError } = await supabase
@@ -72,6 +83,14 @@ async function createOrder(planId: string, userId: string) {
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    console.log("PayOS API request details:", {
+      url: `${PAYOS_API_URL}/v2/payment-requests`,
+      orderCode,
+      amount,
+      description: orderInfo,
+      signature: hashHex.substring(0, 10) + "..." // Log chỉ một phần của signature để bảo mật
+    });
     
     // Call PayOS API to create payment order
     const payosResponse = await fetch(`${PAYOS_API_URL}/v2/payment-requests`, {
@@ -117,6 +136,8 @@ async function createOrder(planId: string, userId: string) {
       return { success: false, error: payosResult.message || 'Failed to create payment' };
     }
     
+    console.log('Successfully created order with QR code');
+    
     // Return QR code data
     return {
       success: true,
@@ -136,17 +157,24 @@ async function createOrder(planId: string, userId: string) {
 }
 
 serve(async (req) => {
+  console.log("Received request:", req.method, req.url);
+  
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
+    console.log("Responding to OPTIONS request with CORS headers");
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
   
   try {
     if (req.method === 'POST') {
+      console.log("Processing POST request");
       const body = await req.json();
       const { planId, userId } = body;
       
+      console.log("Request body:", { planId, userId });
+      
       if (!planId || !userId) {
+        console.error("Missing required fields");
         return new Response(
           JSON.stringify({ success: false, error: 'Missing required fields: planId or userId' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -154,6 +182,7 @@ serve(async (req) => {
       }
       
       const result = await createOrder(planId, userId);
+      console.log("Order creation result:", result);
       
       return new Response(
         JSON.stringify(result),
@@ -161,6 +190,7 @@ serve(async (req) => {
       );
     }
     
+    console.error("Method not allowed:", req.method);
     return new Response(
       JSON.stringify({ success: false, error: 'Method not allowed' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 405 }
