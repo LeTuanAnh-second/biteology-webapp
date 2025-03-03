@@ -55,6 +55,15 @@ const Premium = () => {
         if (error) throw error;
         console.log("Fetched plans:", data);
         setPlans(data || []);
+        
+        // Nếu chỉ có một plan, tự động chọn
+        if (data && data.length === 1) {
+          setSelectedPlan(data[0].id);
+        }
+        // Nếu có plan và chưa có plan nào được chọn, chọn plan đầu tiên
+        else if (data && data.length > 0 && !selectedPlan) {
+          setSelectedPlan(data[0].id);
+        }
       } catch (error) {
         console.error('Error fetching plans:', error);
         toast({
@@ -107,7 +116,7 @@ const Premium = () => {
 
     fetchPlans();
     checkSubscription();
-  }, [user, toast]);
+  }, [user, toast, selectedPlan]);
 
   const handleSelectPlan = (planId: string) => {
     console.log("Selected plan ID:", planId);

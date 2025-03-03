@@ -30,6 +30,15 @@ serve(async (req) => {
   }
 
   try {
+    // Veryify request body
+    if (req.method !== 'POST') {
+      console.error("Method not allowed:", req.method);
+      return new Response(
+        JSON.stringify({ success: false, error: "Method not allowed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 405 }
+      );
+    }
+
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://ijvtkufzaweqzwczpvgr.supabase.co";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -71,13 +80,6 @@ serve(async (req) => {
     }
 
     // Parse request body
-    if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ success: false, error: "Method not allowed" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 405 }
-      );
-    }
-
     const requestData = await req.json();
     const { planId, userId } = requestData;
 
@@ -113,84 +115,109 @@ serve(async (req) => {
     const amount = plan.price;
     const description = `Nâng cấp tài khoản Premium - ${plan.name}`;
 
+    // FIX: Không sử dụng window.location.origin (không tồn tại trong Deno)
+    // Thay vì sử dụng window.location.origin, chúng ta sẽ sử dụng một URL cố định
+    const appBaseUrl = "https://biteology-webapp.lovable.app"; // URL cố định của ứng dụng
+    
     // Create PayOS order
     const paymentData = {
       orderCode: orderId,
       amount,
       description,
       cancelUrl: `${supabaseUrl}/functions/v1/payos-payment-cancel`,
-      returnUrl: `${window.location.origin}/payment-result?orderCode=${orderId}`,
+      returnUrl: `${appBaseUrl}/payment-result?orderCode=${orderId}`,
       expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // 15 minutes
     };
 
     console.log("Payment data:", paymentData);
 
+    // Verify PayOS credentials
+    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY || !PAYOS_API_URL) {
+      console.error("Missing PayOS credentials");
+      return new Response(
+        JSON.stringify({ success: false, error: "Payment provider configuration error" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
+
     // Call PayOS API to create payment
-    const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-client-id': PAYOS_CLIENT_ID,
-        'x-api-key': PAYOS_API_KEY
-      },
-      body: JSON.stringify(paymentData)
-    });
-
-    if (!payosResponse.ok) {
-      const errorText = await payosResponse.text();
-      console.error("PayOS API error:", payosResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to create payment order", details: errorText }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    const payosResult = await payosResponse.json();
-    console.log("PayOS response:", payosResult);
-
-    if (!payosResult.data || !payosResult.data.checkoutUrl) {
-      console.error("Invalid PayOS response:", payosResult);
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid response from payment provider" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
-      );
-    }
-
-    // Store transaction in database
-    const { error: transactionError } = await supabase
-      .from('payment_transactions')
-      .insert({
-        user_id: userId,
-        plan_id: planId,
-        amount,
-        payment_method: 'payos',
-        status: 'pending',
-        order_id: orderId
+    try {
+      const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': PAYOS_CLIENT_ID,
+          'x-api-key': PAYOS_API_KEY
+        },
+        body: JSON.stringify(paymentData)
       });
 
-    if (transactionError) {
-      console.error("Error storing transaction:", transactionError);
-      // We'll continue despite the error to not block the payment process
-    }
-
-    // Return success with payment data
-    const responseData = {
-      success: true,
-      data: {
-        orderId,
-        qrCodeUrl: payosResult.data.qrCode,
-        amount,
-        orderInfo: description,
-        status: 'pending',
-        paymentUrl: payosResult.data.checkoutUrl
+      if (!payosResponse.ok) {
+        const errorText = await payosResponse.text();
+        console.error("PayOS API error:", payosResponse.status, errorText);
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to create payment order", details: errorText }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
-    };
 
-    console.log("Response data:", responseData);
-    return new Response(
-      JSON.stringify(responseData),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-    );
+      const payosResult = await payosResponse.json();
+      console.log("PayOS response:", payosResult);
+
+      if (!payosResult.data || !payosResult.data.checkoutUrl) {
+        console.error("Invalid PayOS response:", payosResult);
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid response from payment provider" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      // Store transaction in database
+      const { error: transactionError } = await supabase
+        .from('payment_transactions')
+        .insert({
+          user_id: userId,
+          plan_id: planId,
+          amount,
+          payment_method: 'payos',
+          status: 'pending',
+          order_id: orderId
+        });
+
+      if (transactionError) {
+        console.error("Error storing transaction:", transactionError);
+        // We'll continue despite the error to not block the payment process
+      }
+
+      // Return success with payment data
+      const responseData = {
+        success: true,
+        data: {
+          orderId,
+          qrCodeUrl: payosResult.data.qrCode,
+          amount,
+          orderInfo: description,
+          status: 'pending',
+          paymentUrl: payosResult.data.checkoutUrl
+        }
+      };
+
+      console.log("Response data:", responseData);
+      return new Response(
+        JSON.stringify(responseData),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    } catch (payosError) {
+      console.error("PayOS API request error:", payosError);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Failed to connect to payment provider", 
+          details: payosError.message || "Unknown error" 
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
+    }
 
   } catch (error) {
     console.error("Unexpected error:", error);
@@ -204,9 +231,3 @@ serve(async (req) => {
     );
   }
 })
-
-// To invoke:
-// curl -i --location --request POST 'http://localhost:54321/functions/v1/payos-create-order' \
-//   --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
-//   --header 'Content-Type: application/json' \
-//   --data '{"planId":"some-plan-id","userId":"some-user-id"}'

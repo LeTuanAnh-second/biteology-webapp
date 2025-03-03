@@ -10,6 +10,7 @@ interface QRPaymentData {
   amount: number;
   orderInfo: string;
   status: string;
+  paymentUrl?: string;
 }
 
 export function usePaymentProcess(
@@ -114,7 +115,7 @@ export function usePaymentProcess(
         return;
       }
       
-      // Sử dụng URL cố định thay vì biến môi trường không xác định
+      // Sử dụng URL cố định
       const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
       console.log("Creating order at:", apiUrl);
       console.log("Auth token available:", !!token);
@@ -136,9 +137,29 @@ export function usePaymentProcess(
       console.log("Response status:", response.status, response.statusText);
       
       if (!response.ok) {
-        console.error('API response not OK:', response.status, response.statusText);
         const errorText = await response.text();
+        console.error('API response not OK:', response.status, response.statusText);
         console.error('Error response:', errorText);
+        
+        let errorMessage = "Không thể tạo đơn hàng. Vui lòng thử lại sau.";
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.error) {
+            errorMessage = errorData.error;
+            if (errorData.details) {
+              console.error('Error details:', errorData.details);
+            }
+          }
+        } catch (e) {
+          // Không parse được JSON, sử dụng thông báo mặc định
+        }
+        
+        toast({
+          variant: "destructive",
+          title: "Lỗi thanh toán",
+          description: errorMessage
+        });
+        
         throw new Error('Network response was not ok');
       }
 
