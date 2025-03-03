@@ -118,6 +118,8 @@ export function usePaymentProcess(
       const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
       console.log("Creating order at:", apiUrl);
       console.log("Auth token available:", !!token);
+      console.log("Selected plan:", selectedPlan);
+      console.log("User ID:", user.id);
       
       const response = await fetch(apiUrl, {
         method: 'POST',

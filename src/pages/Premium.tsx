@@ -53,6 +53,7 @@ const Premium = () => {
           .order('price', { ascending: true });
 
         if (error) throw error;
+        console.log("Fetched plans:", data);
         setPlans(data || []);
       } catch (error) {
         console.error('Error fetching plans:', error);
@@ -109,6 +110,7 @@ const Premium = () => {
   }, [user, toast]);
 
   const handleSelectPlan = (planId: string) => {
+    console.log("Selected plan ID:", planId);
     setSelectedPlan(planId);
   };
 
