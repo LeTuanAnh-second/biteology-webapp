@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
-import { ToastAction } from "@/components/ui/toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface QRPaymentData {
@@ -17,7 +16,7 @@ interface QRPaymentData {
 const MOCK_QR_DATA = {
   orderId: `ORDER_${Date.now()}`,
   qrCodeUrl: "https://example.com/qr-placeholder",
-  amount: 99000,
+  amount: 5000, // Giảm giá xuống còn 5000đ
   orderInfo: "Thanh toán gói Premium",
   status: "pending",
   paymentUrl: "https://example.com/payment"
@@ -199,8 +198,8 @@ export function usePaymentProcess(
           paymentData = {
             ...MOCK_QR_DATA,
             orderId: `ORDER_${Date.now()}`, // Tạo ID đơn hàng ngẫu nhiên
-            amount: Number(selectedPlan === "773078f4-2b8a-4b6b-b6f5-0981e7510f65" ? 99000 : 
-                          selectedPlan === "0e3cb1bf-e2c6-40e3-b99d-6e64d87126b1" ? 249000 : 899000)
+            amount: Number(selectedPlan === "773078f4-2b8a-4b6b-b6f5-0981e7510f65" ? 5000 : 
+                          selectedPlan === "0e3cb1bf-e2c6-40e3-b99d-6e64d87126b1" ? 10000 : 100000)
           };
           
           // Thông báo người dùng rằng đây là chế độ demo
