@@ -236,7 +236,12 @@ export function usePaymentProcess(
       toast({
         variant: "destructive",
         title: "Lỗi thanh toán",
-        description: "Không thể tạo đơn hàng. Vui lòng thử lại sau."
+        description: "Không thể tạo đơn hàng. Vui lòng thử lại sau.",
+        action: (
+          <ToastAction onClick={() => handlePurchase()}>
+            Thử lại
+          </ToastAction>
+        )
       });
     } finally {
       setIsProcessing(false);
