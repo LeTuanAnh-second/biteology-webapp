@@ -54,15 +54,16 @@ const Premium = () => {
 
         if (error) throw error;
         console.log("Fetched plans:", data);
-        setPlans(data || []);
         
-        // Nếu chỉ có một plan, tự động chọn
-        if (data && data.length === 1) {
-          setSelectedPlan(data[0].id);
-        }
-        // Nếu có plan và chưa có plan nào được chọn, chọn plan đầu tiên
-        else if (data && data.length > 0 && !selectedPlan) {
-          setSelectedPlan(data[0].id);
+        if (data && data.length > 0) {
+          setPlans(data);
+          
+          // Tự động chọn gói cơ bản (giá thấp nhất) nếu chưa có gói nào được chọn
+          if (!selectedPlan) {
+            const basicPlan = data.find(plan => plan.name === "Cơ bản") || data[0];
+            console.log("Auto-selecting plan:", basicPlan.id);
+            setSelectedPlan(basicPlan.id);
+          }
         }
       } catch (error) {
         console.error('Error fetching plans:', error);
@@ -89,26 +90,32 @@ const Premium = () => {
           return;
         }
         
-        // Sử dụng URL cố định thay vì biến môi trường không xác định
-        const response = await fetch(
-          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+        // Sử dụng URL cố định
+        try {
+          const response = await fetch(
+            `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
             }
+          );
+          
+          if (!response.ok) {
+            console.error('API response not OK:', response.status, response.statusText);
+            const errorText = await response.text();
+            console.error('Subscription check error:', errorText);
+            return;
           }
-        );
-        
-        if (!response.ok) {
-          console.error('API response not OK:', response.status, response.statusText);
-          const errorText = await response.text();
-          console.error('Subscription check error:', errorText);
-          return;
+          
+          const data = await response.json();
+          setSubscription(data);
+        } catch (error) {
+          console.error('Network error checking subscription:', error);
+          // Mô phỏng dữ liệu cho trường hợp lỗi mạng
+          setSubscription({ isPremium: false });
         }
-        
-        const data = await response.json();
-        setSubscription(data);
       } catch (error) {
         console.error('Error checking subscription:', error);
       }
@@ -116,7 +123,7 @@ const Premium = () => {
 
     fetchPlans();
     checkSubscription();
-  }, [user, toast, selectedPlan]);
+  }, [user, toast]);
 
   const handleSelectPlan = (planId: string) => {
     console.log("Selected plan ID:", planId);
