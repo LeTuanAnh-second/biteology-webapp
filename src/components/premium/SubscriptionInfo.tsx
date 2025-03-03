@@ -12,30 +12,15 @@ interface SubscriptionInfoProps {
 
 export const SubscriptionInfo = ({ subscription }: SubscriptionInfoProps) => {
   const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }).format(date);
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return dateString; // Return original string if formatting fails
-    }
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(date);
   };
 
-  if (!subscription) {
-    return (
-      <div className="mb-12 p-6 bg-yellow-50 border border-yellow-200 rounded-lg max-w-2xl mx-auto">
-        <p className="text-center text-yellow-700">
-          Đang kiểm tra thông tin đăng ký...
-        </p>
-      </div>
-    );
-  }
-
-  if (!subscription.isPremium || !subscription.subscription) {
+  if (!subscription?.isPremium || !subscription.subscription) {
     return null;
   }
 
