@@ -1,232 +1,206 @@
 
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+// PayOS webhook handler for payment notifications
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
+// CORS Headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-}
-
-// PayOS configs
-const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
-const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
-const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+};
 
 serve(async (req) => {
-  console.log("Function started: payos-webhook");
-  console.log("Request method:", req.method);
-  console.log("Request URL:", req.url);
+  console.log("PayOS webhook received:", req.method);
   
-  // Always log the headers for debugging
-  console.log("Request headers:", Object.fromEntries(req.headers.entries()));
-  
-  // Handle CORS preflight request
+  // Always respond with 200 OK for OPTIONS requests
   if (req.method === 'OPTIONS') {
-    console.log("Responding to OPTIONS request with CORS headers");
     return new Response(null, {
-      headers: corsHeaders,
-      status: 204,
+      status: 200,
+      headers: corsHeaders
     });
   }
-
+  
+  // Create Supabase client
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   try {
-    // Accept all HTTP methods for maximum compatibility with PayOS webhook
-    console.log("Processing webhook request");
+    let paymentData: any;
     
-    // Get the request body for POST requests
-    let payload = {};
-    let requestBody = "";
-    
-    if (req.method === 'POST') {
+    // Handle both GET and POST methods
+    if (req.method === 'GET') {
+      // For GET requests, look for data in URL query parameters
+      const url = new URL(req.url);
+      const orderCode = url.searchParams.get('orderCode');
+      if (orderCode) {
+        paymentData = { orderCode };
+      } else {
+        console.log("No orderCode found in GET parameters");
+      }
+    } else {
+      // For POST requests, try to parse the request body
       try {
-        // First try to parse as JSON
-        try {
-          payload = await req.json();
-          console.log("Received webhook JSON payload:", payload);
-        } catch (jsonError) {
-          // If it's not JSON, get the raw text
-          requestBody = await req.text();
-          console.log("Received webhook text payload:", requestBody);
-          
-          // Try to parse it as JSON anyway (sometimes content-type is wrong)
+        const contentType = req.headers.get('content-type') || '';
+        
+        if (contentType.includes('application/json')) {
+          paymentData = await req.json();
+        } else if (contentType.includes('application/x-www-form-urlencoded')) {
+          const formData = await req.formData();
+          paymentData = {};
+          for (const [key, value] of formData.entries()) {
+            paymentData[key] = value;
+          }
+        } else {
+          // Try to parse as JSON anyway
+          const text = await req.text();
           try {
-            payload = JSON.parse(requestBody);
-            console.log("Successfully parsed text as JSON:", payload);
-          } catch (parseError) {
-            console.log("Could not parse as JSON, treating as form data or plain text");
-            
-            // Try to handle as form data if it looks like it
-            if (requestBody.includes('=')) {
-              const formData = new URLSearchParams(requestBody);
-              payload = Object.fromEntries(formData.entries());
-              console.log("Parsed as form data:", payload);
-            }
+            paymentData = JSON.parse(text);
+          } catch {
+            console.log("Unable to parse request body as JSON:", text);
+            // Store raw text for debugging
+            paymentData = { rawData: text };
           }
         }
       } catch (error) {
-        console.error("Error processing request body:", error);
-        // Continue anyway - we'll still acknowledge the webhook
+        console.error("Error parsing request body:", error);
       }
-    } else if (req.method === 'GET') {
-      // For GET requests, extract parameters from URL
-      const url = new URL(req.url);
-      payload = Object.fromEntries(url.searchParams.entries());
-      console.log("GET parameters:", payload);
     }
-
-    // Create Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase credentials");
-      // Still return 200 OK for webhook verification
-      return new Response(
-        JSON.stringify({ success: true, message: "Webhook received but database connection not available" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // For GET requests or webhook verification, just acknowledge it
-    if (req.method === 'GET' || Object.keys(payload).length === 0) {
-      console.log("Acknowledging GET request or empty webhook verification");
-      return new Response(
-        JSON.stringify({ success: true, message: "Webhook endpoint is active" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-
-    // Extract order information from the payload
-    // PayOS webhook might send data in different formats, so we check multiple possible structures
-    const orderCode = payload.orderCode || payload.order_code || 
-                      (payload.data && payload.data.orderCode) || 
-                      (payload.orderInfo && payload.orderInfo.orderCode);
-                      
-    const status = payload.status || 
-                   (payload.data && payload.data.status) || 
-                   (payload.orderInfo && payload.orderInfo.status);
     
-    console.log("Extracted orderCode:", orderCode);
-    console.log("Extracted status:", status);
+    console.log("Payment webhook data:", paymentData);
     
-    if (orderCode) {
-      // Look up the transaction in our database
-      const { data: transaction, error: lookupError } = await supabase
+    // Extract order code/ID from the PayOS webhook data
+    let orderId: string | null = null;
+    
+    if (paymentData) {
+      // Try different possible field names
+      orderId = paymentData.orderCode || 
+                paymentData.order_code || 
+                (paymentData.data && paymentData.data.orderCode) ||
+                (paymentData.data && paymentData.data.order_code) ||
+                null;
+    }
+    
+    console.log("Extracted order ID:", orderId);
+    
+    if (orderId) {
+      // Store the webhook receipt for debugging
+      await supabase.from('webhook_logs').insert({
+        source: 'payos',
+        event_type: 'payment_notification',
+        data: paymentData,
+        processed: false,
+        order_id: orderId
+      });
+      
+      // Find transaction by order ID
+      const { data: transaction, error: transactionError } = await supabase
         .from('payment_transactions')
         .select('*')
-        .eq('order_id', orderCode)
-        .single();
-
-      if (lookupError) {
-        console.error("Transaction lookup error:", lookupError);
-        // Still return 200 to acknowledge webhook
-        return new Response(
-          JSON.stringify({ success: true, message: "Webhook received, but transaction lookup failed" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-
-      if (!transaction) {
-        console.log("Transaction not found for orderCode:", orderCode);
-        // Still return 200 to acknowledge webhook
-        return new Response(
-          JSON.stringify({ success: true, message: "Webhook received, but transaction not found" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-
-      console.log("Found transaction:", transaction);
-
-      // Update transaction based on webhook data
-      if (status === 'PAID' || status === 'COMPLETED' || status === 'SUCCESS') {
-        // Payment successful - update transaction and activate subscription
-        const { error: updateError } = await supabase
+        .eq('order_id', orderId)
+        .maybeSingle();
+      
+      if (transactionError) {
+        console.error("Error fetching transaction:", transactionError);
+      } else if (transaction) {
+        console.log("Found transaction:", transaction);
+        
+        // Update transaction status
+        await supabase
           .from('payment_transactions')
           .update({ 
-            status: 'success',
-            updated_at: new Date().toISOString(),
-            payment_data: payload
+            status: 'completed',
+            updated_at: new Date().toISOString()
           })
-          .eq('order_id', orderCode);
-
-        if (updateError) {
-          console.error("Error updating transaction:", updateError);
-        } else {
-          console.log("Transaction updated to success");
+          .eq('id', transaction.id);
+        
+        // Create or update user subscription
+        const endDate = new Date();
+        
+        // Get plan details for duration
+        const { data: plan } = await supabase
+          .from('premium_plans')
+          .select('*')
+          .eq('id', transaction.plan_id)
+          .maybeSingle();
+        
+        if (plan) {
+          endDate.setDate(endDate.getDate() + (plan.duration_days || 30));
           
-          // Activate subscription
-          const { data: plan } = await supabase
-            .from('premium_plans')
-            .select('duration_days')
-            .eq('id', transaction.plan_id)
-            .single();
-
-          if (plan) {
-            const durationDays = plan.duration_days || 30;
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + durationDays);
-
-            const { error: subscriptionError } = await supabase
+          // Try to get existing subscription
+          const { data: existingSub } = await supabase
+            .from('user_subscriptions')
+            .select('*')
+            .eq('user_id', transaction.user_id)
+            .maybeSingle();
+          
+          if (existingSub) {
+            // Update existing subscription
+            await supabase
               .from('user_subscriptions')
-              .upsert({
+              .update({
+                plan_id: transaction.plan_id,
+                start_date: new Date().toISOString(),
+                end_date: endDate.toISOString(),
+                status: 'active',
+                transaction_id: transaction.id
+              })
+              .eq('id', existingSub.id);
+          } else {
+            // Create new subscription
+            await supabase
+              .from('user_subscriptions')
+              .insert({
                 user_id: transaction.user_id,
                 plan_id: transaction.plan_id,
                 start_date: new Date().toISOString(),
                 end_date: endDate.toISOString(),
                 status: 'active',
-                payment_transaction_id: transaction.id
+                transaction_id: transaction.id
               });
-
-            if (subscriptionError) {
-              console.error("Error creating subscription:", subscriptionError);
-            } else {
-              console.log("Subscription created successfully");
-            }
           }
-        }
-      } else if (status === 'CANCELLED' || status === 'FAILED' || status === 'ERROR') {
-        // Payment failed or cancelled
-        const { error: updateError } = await supabase
-          .from('payment_transactions')
-          .update({ 
-            status: 'failed',
-            updated_at: new Date().toISOString(),
-            payment_data: payload
-          })
-          .eq('order_id', orderCode);
-
-        if (updateError) {
-          console.error("Error updating transaction:", updateError);
+          
+          // Update user premium status
+          await supabase
+            .from('profiles')
+            .update({ is_premium: true })
+            .eq('id', transaction.user_id);
+            
+          // Update webhook log as processed
+          await supabase
+            .from('webhook_logs')
+            .update({ processed: true })
+            .eq('order_id', orderId);
+            
+          console.log("Payment processing completed successfully");
         } else {
-          console.log("Transaction updated to failed");
+          console.error("Plan not found:", transaction.plan_id);
         }
       } else {
-        // Status is pending or unknown
-        console.log("Payment status is pending or unknown:", status);
+        console.log("No transaction found for order ID:", orderId);
       }
-    } else {
-      console.log("No orderCode found in webhook payload");
     }
-
-    // Always return success with 200 status to acknowledge webhook
+    
+    // Always return success to the PayOS webhook caller
     return new Response(
-      JSON.stringify({ success: true, message: "Webhook processed" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      JSON.stringify({ success: true }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      }
     );
-
   } catch (error) {
-    console.error("Unexpected error in webhook handler:", error);
-    // Still return 200 OK to acknowledge receipt of the webhook
+    console.error("Error processing webhook:", error);
+    
+    // Still return 200 to prevent PayOS from retrying
     return new Response(
-      JSON.stringify({ success: true, message: "Webhook received, but processing failed" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      JSON.stringify({ success: false, error: String(error) }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 // Return 200 even on error to avoid retries
+      }
     );
   }
-})
+});

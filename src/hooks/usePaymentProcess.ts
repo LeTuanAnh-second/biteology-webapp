@@ -23,7 +23,7 @@ export function usePaymentProcess(
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
   const [checkingInterval, setCheckingInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Đảm bảo xóa interval khi component unmount
+  // Ensure interval is cleared when component unmounts
   useEffect(() => {
     return () => {
       if (checkingInterval) {
@@ -36,7 +36,7 @@ export function usePaymentProcess(
     if (!user) return;
     
     try {
-      // Lấy token JWT của người dùng hiện tại
+      // Get current user's JWT token
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
@@ -98,7 +98,7 @@ export function usePaymentProcess(
 
     setIsProcessing(true);
     try {
-      // Lấy token JWT của người dùng hiện tại
+      // Get current user's JWT token
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       
@@ -116,7 +116,7 @@ export function usePaymentProcess(
       console.log("Selected plan:", selectedPlan);
       console.log("User ID:", user.id);
       
-      // Gọi API tạo đơn hàng thực tế - không sử dụng chế độ thử nghiệm nữa
+      // Use the live PayOS API instead of sandbox
       const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
       console.log("Creating order at:", apiUrl);
       console.log("Auth token available:", !!token);
@@ -129,7 +129,8 @@ export function usePaymentProcess(
         },
         body: JSON.stringify({
           planId: selectedPlan,
-          userId: user.id
+          userId: user.id,
+          callbackUrl: window.location.origin // Pass the origin URL for proper redirection
         })
       });
       
@@ -157,18 +158,23 @@ export function usePaymentProcess(
         throw new Error(result.error || 'Không thể tạo đơn hàng');
       }
 
-      // Đã nhận được dữ liệu từ PayOS
+      // Received data from PayOS
       const paymentData = result.data;
       setQRPaymentData(paymentData);
       setShowQRDialog(true);
       setPaymentStatus('pending');
       
-      // Thiết lập kiểm tra trạng thái thanh toán
+      // Set up payment status checking
       const intervalId = setInterval(() => {
         checkPaymentStatus(paymentData.orderId);
       }, 5000);
       
       setCheckingInterval(intervalId);
+      
+      // Auto-redirect to payment URL if available
+      if (paymentData.paymentUrl) {
+        window.open(paymentData.paymentUrl, '_blank');
+      }
       
     } catch (error) {
       console.error('Error creating order:', error);

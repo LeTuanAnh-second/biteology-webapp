@@ -12,11 +12,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 }
 
-// PayOS configs
+// PayOS configs - updated to use production environment
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
-const PAYOS_API_URL = "https://api-sandbox.payos.vn";
+// Use production URL instead of sandbox
+const PAYOS_API_URL = "https://api.payos.vn";
 
 serve(async (req) => {
   console.log("Function started: payos-create-order");
@@ -114,7 +115,7 @@ serve(async (req) => {
 
     // Create a unique order ID
     const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const amount = plan.price;
+    const amount = Math.round(plan.price); // Ensure amount is an integer
     const description = `Nâng cấp tài khoản Premium - ${plan.name}`;
 
     // Use application base URL or fallback

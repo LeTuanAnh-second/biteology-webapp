@@ -35,3 +35,9 @@ verify_jwt = false
 verify_jwt = false
 [functions.payos-webhook]
 verify_jwt = false
+[functions.zalopay-create-order]
+verify_jwt = false
+[functions.zalopay-callback]
+verify_jwt = false
+[functions.zalopay-check-subscription]
+verify_jwt = false

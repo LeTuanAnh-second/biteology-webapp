@@ -13,125 +13,143 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
-// PayOS API configuration
-const PAYOS_CLIENT_ID = "584c3026-5cb1-4ddb-b94b-cfdea981eda3";
-const PAYOS_API_KEY = "2905ca16-e50e-4932-9024-f25ba3035b6d";
-const PAYOS_API_URL = "https://api-merchant.payos.vn";
+// PayOS API configuration - updated to production URL
+const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
+const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
+const PAYOS_API_URL = "https://api.payos.vn";
 
 async function verifyPayment(orderId: string) {
   try {
     console.log(`Verifying payment for order ${orderId}`);
     
-    // In a real implementation, we would call the PayOS API to verify the payment
-    // For demo/sandbox, we'll check our database
-    
-    // Check if order exists in our database
-    const { data: order, error: orderError } = await supabase
-      .from('premium_orders')
+    // Check if transaction exists in our database
+    const { data: transaction, error: transactionError } = await supabase
+      .from('payment_transactions')
       .select('*')
-      .eq('id', orderId)
+      .eq('order_id', orderId)
       .maybeSingle();
     
-    if (orderError) {
-      console.error('Error fetching order:', orderError);
-      return { success: false, message: 'Error fetching order' };
+    if (transactionError) {
+      console.error('Error fetching transaction:', transactionError);
+      return { success: false, message: 'Error fetching transaction' };
     }
     
-    if (!order) {
-      console.log('Order not found:', orderId);
-      return { success: false, message: 'Order not found' };
+    if (!transaction) {
+      console.log('Transaction not found:', orderId);
+      return { success: false, message: 'Transaction not found' };
     }
     
-    console.log('Order found:', order);
+    console.log('Transaction found:', transaction);
     
-    // In a real scenario, we would check the payment status with PayOS
-    // For demo, we'll just simulate a successful payment
-    
-    // For demo/sandbox, let's just consider the payment successful
-    const isSuccessful = true;
-    
-    if (isSuccessful) {
-      // Create user subscription record
-      const endDate = new Date();
-      const { data: plan } = await supabase
-        .from('premium_plans')
-        .select('duration_days')
-        .eq('id', order.plan_id)
-        .maybeSingle();
-      
-      // Calculate end date based on plan duration
-      endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
-      
-      // Create a transaction record
-      const { data: transaction, error: transactionError } = await supabase
-        .from('payment_transactions')
-        .insert({
-          user_id: order.user_id,
-          plan_id: order.plan_id,
-          amount: order.amount,
-          status: 'completed',
-          payment_method: 'payos',
-          order_id: order.id
-        })
-        .select()
-        .single();
-      
-      if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
-        // Continue execution - not critical for the payment verification
-      }
-      
-      // Create or update user subscription
-      try {
-        const { data: subscription, error: subscriptionError } = await supabase
-          .from('user_subscriptions')
-          .insert({
-            user_id: order.user_id,
-            plan_id: order.plan_id,
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'active',
-            transaction_id: transaction?.id || null
-          })
-          .select();
-          
-        if (subscriptionError) {
-          console.error('Error creating subscription:', subscriptionError);
-          // Continue execution - we'll retry below
+    // In a real implementation, we would call the PayOS API to verify payment status
+    try {
+      // Call PayOS API to check payment status
+      const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'x-client-id': PAYOS_CLIENT_ID,
+          'x-api-key': PAYOS_API_KEY
         }
-      } catch (err) {
-        console.error('Error in subscription creation:', err);
+      });
+      
+      if (!payosResponse.ok) {
+        console.error('PayOS API error:', payosResponse.status);
+        // Fall back to checking our database status
+        if (transaction.status === 'completed') {
+          return { success: true, message: 'Payment already completed' };
+        }
+        return { success: false, message: 'Failed to verify payment with provider' };
       }
       
-      // Update the order status
-      await supabase
-        .from('premium_orders')
-        .update({ status: 'completed' })
-        .eq('id', orderId);
+      const payosResult = await payosResponse.json();
+      console.log('PayOS verification result:', payosResult);
       
-      // Update user profile to mark as premium
-      await supabase
-        .from('profiles')
-        .update({ is_premium: true })
-        .eq('id', order.user_id);
+      const isSuccessful = payosResult.data && 
+                         (payosResult.data.status === 'PAID' || 
+                          payosResult.data.status === 'COMPLETED');
       
-      return { 
-        success: true, 
-        message: 'Payment verified successfully',
-        orderId: orderId,
-        userId: order.user_id,
-        planId: order.plan_id
-      };
-    } else {
-      // Update the order status to failed
-      await supabase
-        .from('premium_orders')
-        .update({ status: 'failed' })
-        .eq('id', orderId);
-      
-      return { success: false, message: 'Payment verification failed' };
+      if (isSuccessful) {
+        // Update transaction status
+        await supabase
+          .from('payment_transactions')
+          .update({ status: 'completed' })
+          .eq('order_id', orderId);
+          
+        // Create user subscription record
+        const endDate = new Date();
+        const { data: plan } = await supabase
+          .from('premium_plans')
+          .select('duration_days')
+          .eq('id', transaction.plan_id)
+          .maybeSingle();
+        
+        // Calculate end date based on plan duration
+        endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
+        
+        // Create or update user subscription
+        try {
+          // Check if subscription exists
+          const { data: existingSub } = await supabase
+            .from('user_subscriptions')
+            .select('*')
+            .eq('user_id', transaction.user_id)
+            .maybeSingle();
+            
+          if (existingSub) {
+            // Update existing subscription
+            await supabase
+              .from('user_subscriptions')
+              .update({
+                plan_id: transaction.plan_id,
+                start_date: new Date().toISOString(),
+                end_date: endDate.toISOString(),
+                status: 'active',
+                transaction_id: transaction.id
+              })
+              .eq('user_id', transaction.user_id);
+          } else {
+            // Create new subscription
+            await supabase
+              .from('user_subscriptions')
+              .insert({
+                user_id: transaction.user_id,
+                plan_id: transaction.plan_id,
+                start_date: new Date().toISOString(),
+                end_date: endDate.toISOString(),
+                status: 'active',
+                transaction_id: transaction.id
+              });
+          }
+        } catch (err) {
+          console.error('Error handling subscription:', err);
+        }
+        
+        // Update user profile to mark as premium
+        await supabase
+          .from('profiles')
+          .update({ is_premium: true })
+          .eq('id', transaction.user_id);
+        
+        return { 
+          success: true, 
+          message: 'Payment verified successfully',
+          orderId: orderId,
+          userId: transaction.user_id,
+          planId: transaction.plan_id
+        };
+      } else {
+        return { success: false, message: 'Payment verification failed or payment not completed' };
+      }
+    } catch (error) {
+      console.error('Error calling PayOS API:', error);
+      // Fall back to checking our database status
+      if (transaction.status === 'completed') {
+        return { success: true, message: 'Payment already completed' };
+      }
+      return { success: false, message: 'Error verifying payment' };
     }
     
   } catch (error) {
@@ -146,7 +164,10 @@ serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     console.log("Responding to OPTIONS request with CORS headers");
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { 
+      headers: corsHeaders, 
+      status: 204 
+    });
   }
   
   try {
