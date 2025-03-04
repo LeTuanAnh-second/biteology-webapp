@@ -27,4 +27,12 @@ verify_jwt = false
 verify_jwt = false
 [functions.momo-check-subscription]
 verify_jwt = false
+[functions.payos-create-order]
+verify_jwt = false
+[functions.payos-verify-payment]
+verify_jwt = false
+[functions.payos-check-subscription]
+verify_jwt = false
+[functions.payos-webhook]
+verify_jwt = false
 

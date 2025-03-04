@@ -13,9 +13,9 @@ const corsHeaders = {
 }
 
 // PayOS configs
-const PAYOS_CLIENT_ID = "d7bf6130-bc2d-4911-a0f9-80063b41844a";
-const PAYOS_API_KEY = "0c989ecc-4bc4-4b5d-ab89-fcc59501757f";
-const PAYOS_CHECKSUM_KEY = "e04c83bc-aa4d-402a-9d1a-f9ca25f3976a";
+const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
+const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
+const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
 const PAYOS_API_URL = "https://api-sandbox.payos.vn";
 
 serve(async (req) => {
@@ -30,7 +30,7 @@ serve(async (req) => {
   }
 
   try {
-    // Veryify request body
+    // Verify request body
     if (req.method !== 'POST') {
       console.error("Method not allowed:", req.method);
       return new Response(
@@ -40,11 +40,11 @@ serve(async (req) => {
     }
 
     // Create Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://ijvtkufzaweqzwczpvgr.supabase.co";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-    if (!supabaseKey) {
-      console.error("Missing SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Missing Supabase credentials");
       return new Response(
         JSON.stringify({ success: false, error: "Server configuration error" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -53,7 +53,9 @@ serve(async (req) => {
 
     console.log("Environment variables:", {
       supabaseUrl,
-      hasSupabaseKey: !!supabaseKey
+      hasSupabaseKey: !!supabaseKey,
+      hasPayosClientId: !!PAYOS_CLIENT_ID,
+      hasPayosApiKey: !!PAYOS_API_KEY
     });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -81,9 +83,9 @@ serve(async (req) => {
 
     // Parse request body
     const requestData = await req.json();
-    const { planId, userId } = requestData;
+    const { planId, userId, callbackUrl } = requestData;
 
-    console.log("Request data:", { planId, userId });
+    console.log("Request data:", { planId, userId, callbackUrl });
 
     if (!planId || !userId) {
       console.error("Missing required fields");
@@ -115,18 +117,22 @@ serve(async (req) => {
     const amount = plan.price;
     const description = `Nâng cấp tài khoản Premium - ${plan.name}`;
 
-    // FIX: Không sử dụng window.location.origin (không tồn tại trong Deno)
-    // Thay vì sử dụng window.location.origin, chúng ta sẽ sử dụng một URL cố định
-    const appBaseUrl = "https://biteology-webapp.lovable.app"; // URL cố định của ứng dụng
+    // Use application base URL or fallback
+    const appBaseUrl = callbackUrl || "https://biteology-webapp.lovable.app";
+    
+    // Get webhook URL from the base app URL
+    const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
+    console.log("Using webhook URL:", webhookUrl);
     
     // Create PayOS order
     const paymentData = {
       orderCode: orderId,
       amount,
       description,
-      cancelUrl: `${supabaseUrl}/functions/v1/payos-payment-cancel`,
+      cancelUrl: `${appBaseUrl}/payment-result?status=cancelled&orderCode=${orderId}`,
       returnUrl: `${appBaseUrl}/payment-result?orderCode=${orderId}`,
       expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // 15 minutes
+      webhookUrl: webhookUrl
     };
 
     console.log("Payment data:", paymentData);
