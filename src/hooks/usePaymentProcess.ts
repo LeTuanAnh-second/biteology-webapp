@@ -12,16 +12,6 @@ interface QRPaymentData {
   paymentUrl?: string;
 }
 
-// Dùng để mô phỏng thanh toán khi API gặp lỗi
-const MOCK_QR_DATA = {
-  orderId: `ORDER_${Date.now()}`,
-  qrCodeUrl: "https://example.com/qr-placeholder",
-  amount: 5000, // Giảm giá xuống còn 5000đ
-  orderInfo: "Thanh toán gói Premium",
-  status: "pending",
-  paymentUrl: "https://example.com/payment"
-};
-
 export function usePaymentProcess(
   user: User | null,
   selectedPlan: string | null,
@@ -41,28 +31,6 @@ export function usePaymentProcess(
       }
     };
   }, [checkingInterval]);
-
-  // Mô phỏng kiểm tra thanh toán
-  const mockCheckPaymentStatus = () => {
-    console.log("Mô phỏng kiểm tra thanh toán...");
-    // Sau 5 giây, mô phỏng thanh toán thành công
-    setTimeout(() => {
-      setPaymentStatus('success');
-      if (checkingInterval) {
-        clearInterval(checkingInterval);
-        setCheckingInterval(null);
-      }
-      
-      toast({
-        title: "Thanh toán thành công",
-        description: "Bạn đã nâng cấp tài khoản lên Premium thành công."
-      });
-      
-      setTimeout(() => {
-        setShowQRDialog(false);
-      }, 3000);
-    }, 5000);
-  };
 
   const checkPaymentStatus = async (orderId: string) => {
     if (!user) return;
@@ -148,88 +116,60 @@ export function usePaymentProcess(
       console.log("Selected plan:", selectedPlan);
       console.log("User ID:", user.id);
       
-      // Cố gắng gọi API tạo đơn hàng
-      let orderCreated = false;
-      let paymentData = null;
+      // Gọi API tạo đơn hàng thực tế - không sử dụng chế độ thử nghiệm nữa
+      const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
+      console.log("Creating order at:", apiUrl);
+      console.log("Auth token available:", !!token);
       
-      try {
-        // Sử dụng URL cố định
-        const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
-        console.log("Creating order at:", apiUrl);
-        console.log("Auth token available:", !!token);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          planId: selectedPlan,
+          userId: user.id
+        })
+      });
+      
+      console.log("Response status:", response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API response not OK:', response.status, response.statusText);
+        console.error('Error response:', errorText);
         
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            planId: selectedPlan,
-            userId: user.id
-          })
+        toast({
+          variant: "destructive",
+          title: "Lỗi thanh toán",
+          description: "Không thể tạo đơn hàng. Vui lòng thử lại sau."
         });
         
-        console.log("Response status:", response.status, response.statusText);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API response not OK:', response.status, response.statusText);
-          console.error('Error response:', errorText);
-          throw new Error('Network response was not ok');
-        }
-
-        const result = await response.json();
-        console.log("Order creation response:", result);
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Không thể tạo đơn hàng');
-        }
-
-        orderCreated = true;
-        paymentData = result.data;
-      } catch (apiError) {
-        console.error('API error:', apiError);
-        
-        // Nếu API thất bại, sử dụng mô phỏng cho mục đích demo
-        if (!orderCreated) {
-          console.log("Using mock data for demonstration purposes");
-          orderCreated = true;
-          paymentData = {
-            ...MOCK_QR_DATA,
-            orderId: `ORDER_${Date.now()}`, // Tạo ID đơn hàng ngẫu nhiên
-            amount: Number(selectedPlan === "773078f4-2b8a-4b6b-b6f5-0981e7510f65" ? 5000 : 
-                          selectedPlan === "0e3cb1bf-e2c6-40e3-b99d-6e64d87126b1" ? 10000 : 100000)
-          };
-          
-          // Thông báo người dùng rằng đây là chế độ demo
-          toast({
-            title: "Chế độ thử nghiệm",
-            description: "Đã chuyển sang chế độ thanh toán thử nghiệm do không thể kết nối với cổng thanh toán.",
-            duration: 5000,
-          });
-        }
+        setIsProcessing(false);
+        return;
       }
+
+      const result = await response.json();
+      console.log("Order creation response:", result);
       
-      if (orderCreated && paymentData) {
-        setQRPaymentData(paymentData);
-        setShowQRDialog(true);
-        setPaymentStatus('pending');
-        
-        // Nếu là mô phỏng, sử dụng mock check
-        if (paymentData === MOCK_QR_DATA) {
-          mockCheckPaymentStatus();
-        } else {
-          // Kiểm tra thanh toán thực tế
-          const intervalId = setInterval(() => {
-            checkPaymentStatus(paymentData.orderId);
-          }, 5000);
-          
-          setCheckingInterval(intervalId);
-        }
-      } else {
-        throw new Error('Không thể tạo đơn hàng');
+      if (!result.success) {
+        throw new Error(result.error || 'Không thể tạo đơn hàng');
       }
+
+      // Đã nhận được dữ liệu từ PayOS
+      const paymentData = result.data;
+      setQRPaymentData(paymentData);
+      setShowQRDialog(true);
+      setPaymentStatus('pending');
+      
+      // Thiết lập kiểm tra trạng thái thanh toán
+      const intervalId = setInterval(() => {
+        checkPaymentStatus(paymentData.orderId);
+      }, 5000);
+      
+      setCheckingInterval(intervalId);
+      
     } catch (error) {
       console.error('Error creating order:', error);
       toast({
