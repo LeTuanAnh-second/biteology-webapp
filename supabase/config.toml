@@ -35,4 +35,3 @@ verify_jwt = false
 verify_jwt = false
 [functions.payos-webhook]
 verify_jwt = false
-

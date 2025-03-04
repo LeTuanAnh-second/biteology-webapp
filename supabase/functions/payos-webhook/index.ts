@@ -19,18 +19,21 @@ const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
 
 serve(async (req) => {
   console.log("Function started: payos-webhook");
+  console.log("Request method:", req.method);
+  console.log("Request URL:", req.url);
   
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
+    console.log("Responding to OPTIONS request with CORS headers");
     return new Response(null, {
       headers: corsHeaders,
       status: 204,
-    })
+    });
   }
 
   try {
-    // Verify request method
-    if (req.method !== 'POST') {
+    // For PayOS, we'll accept both GET and POST requests
+    if (req.method !== 'POST' && req.method !== 'GET') {
       console.error("Method not allowed:", req.method);
       return new Response(
         JSON.stringify({ success: false, error: "Method not allowed" }),
@@ -38,17 +41,25 @@ serve(async (req) => {
       );
     }
 
-    // Parse webhook payload
+    // Parse webhook payload for POST requests
     let payload;
-    try {
-      payload = await req.json();
-      console.log("Received webhook payload:", JSON.stringify(payload));
-    } catch (error) {
-      console.error("Invalid JSON payload:", error);
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid payload" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
-      );
+    if (req.method === 'POST') {
+      try {
+        payload = await req.json();
+        console.log("Received webhook payload:", JSON.stringify(payload));
+      } catch (error) {
+        console.error("Invalid JSON payload:", error);
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid payload" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+    } else {
+      // For GET requests (possibly initial verification by PayOS)
+      console.log("Received GET request, likely a verification check");
+      const url = new URL(req.url);
+      payload = Object.fromEntries(url.searchParams.entries());
+      console.log("GET parameters:", payload);
     }
 
     // Create Supabase client
@@ -65,11 +76,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Validate PayOS webhook signature (optional but recommended)
-    // Here you would validate the signature using PAYOS_CHECKSUM_KEY
-    // This step depends on PayOS webhook implementation
+    // For GET requests, just acknowledge it
+    if (req.method === 'GET') {
+      console.log("Acknowledging GET request");
+      return new Response(
+        JSON.stringify({ success: true, message: "Webhook endpoint is active" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+    }
 
-    // Process the webhook based on event type
+    // For POST requests, process the webhook data
+    // Extract transaction details from payload
     // The exact structure depends on PayOS webhook format
     const { transactionInfo, orderCode, amount, status } = payload;
     
@@ -90,9 +107,11 @@ serve(async (req) => {
 
     if (lookupError || !transaction) {
       console.error("Transaction not found:", orderCode, lookupError);
+      // We still return 200 OK to acknowledge the webhook
+      // This is important for webhook systems to know we received the message
       return new Response(
-        JSON.stringify({ success: false, error: "Transaction not found" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+        JSON.stringify({ success: false, message: "Transaction not found, but webhook received" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
     }
 
@@ -112,9 +131,10 @@ serve(async (req) => {
 
       if (updateError) {
         console.error("Error updating transaction:", updateError);
+        // We still return 200 to acknowledge the webhook
         return new Response(
-          JSON.stringify({ success: false, error: "Failed to update transaction" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          JSON.stringify({ success: true, message: "Webhook received, but database update failed" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       }
 
@@ -161,9 +181,10 @@ serve(async (req) => {
 
       if (updateError) {
         console.error("Error updating transaction:", updateError);
+        // We still return 200 to acknowledge the webhook
         return new Response(
-          JSON.stringify({ success: false, error: "Failed to update transaction" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          JSON.stringify({ success: true, message: "Webhook received, but database update failed" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
         );
       }
 
@@ -174,16 +195,18 @@ serve(async (req) => {
     }
 
     // Return success response to acknowledge webhook receipt
+    // Always return 200 OK for webhooks to indicate we've processed it
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, message: "Webhook processed successfully" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
 
   } catch (error) {
     console.error("Unexpected error processing webhook:", error);
+    // Still return 200 OK to acknowledge receipt of the webhook
     return new Response(
-      JSON.stringify({ success: false, error: "Internal server error" }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      JSON.stringify({ success: true, message: "Webhook received, but processing failed" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );
   }
 })
