@@ -7,8 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { PlansDisplay } from "@/components/premium/PlansDisplay";
 import { SubscriptionInfo } from "@/components/premium/SubscriptionInfo";
-import { QRPaymentDialog } from "@/components/premium/QRPaymentDialog";
-import { usePaymentProcess } from "@/hooks/usePaymentProcess";
+import { DirectPaymentLink } from "@/components/premium/DirectPaymentLink";
 
 interface PremiumPlan {
   id: string;
@@ -25,6 +24,7 @@ const Premium = () => {
   const [plans, setPlans] = useState<PremiumPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [subscription, setSubscription] = useState<{
     isPremium: boolean;
     subscription?: {
@@ -33,17 +33,6 @@ const Premium = () => {
       remainingDays: number;
     };
   } | null>(null);
-
-  const {
-    isProcessing,
-    isRetrying,
-    retryCount,
-    qrPaymentData,
-    showQRDialog,
-    paymentStatus,
-    handlePurchase,
-    setShowQRDialog
-  } = usePaymentProcess(user, selectedPlan, toast);
 
   useEffect(() => {
     async function fetchPlans() {
@@ -132,6 +121,22 @@ const Premium = () => {
     setSelectedPlan(planId);
   };
 
+  const handlePurchase = () => {
+    if (!selectedPlan) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Vui lòng chọn gói premium trước khi thanh toán."
+      });
+      return;
+    }
+    
+    setShowPaymentDialog(true);
+  };
+
+  // Get the selected plan details
+  const selectedPlanDetails = selectedPlan ? plans.find(plan => plan.id === selectedPlan) || null : null;
+
   return (
     <div className="min-h-screen">
       <header className="border-b">
@@ -160,17 +165,14 @@ const Premium = () => {
           selectedPlan={selectedPlan}
           onSelectPlan={handleSelectPlan}
           onPurchase={handlePurchase}
-          isProcessing={isProcessing}
-          isRetrying={isRetrying}
-          retryCount={retryCount}
+          isProcessing={false}
         />
       </main>
 
-      <QRPaymentDialog
-        open={showQRDialog}
-        onOpenChange={setShowQRDialog}
-        paymentStatus={paymentStatus}
-        qrPaymentData={qrPaymentData}
+      <DirectPaymentLink
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        selectedPlan={selectedPlanDetails}
       />
     </div>
   );
