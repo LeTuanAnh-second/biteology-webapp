@@ -12,6 +12,9 @@ interface QRPaymentData {
   paymentUrl?: string;
 }
 
+// Get the Supabase URL from the client environment or use a fallback
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "https://ijvtkufzaweqzwczpvgr.supabase.co";
+
 export function usePaymentProcess(
   user: User | null,
   selectedPlan: string | null,
@@ -47,7 +50,7 @@ export function usePaymentProcess(
         return;
       }
       
-      const apiUrl = `${supabase.supabaseUrl}/functions/v1/payos-verify-payment`;
+      const apiUrl = `${SUPABASE_URL}/functions/v1/payos-verify-payment`;
       console.log("Checking payment status at:", apiUrl);
       
       const response = await fetch(`${apiUrl}?orderId=${orderId}`, {
@@ -121,8 +124,8 @@ export function usePaymentProcess(
         console.log("Selected plan:", selectedPlan);
         console.log("User ID:", user.id);
         
-        // Use the Supabase URL dynamically
-        const apiUrl = `${supabase.supabaseUrl}/functions/v1/payos-create-order`;
+        // Use the Supabase URL
+        const apiUrl = `${SUPABASE_URL}/functions/v1/payos-create-order`;
         console.log("Creating order at:", apiUrl);
         console.log("Auth token available:", !!token);
         
