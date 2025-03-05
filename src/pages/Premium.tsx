@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,7 @@ const Premium = () => {
   const [plans, setPlans] = useState<PremiumPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [subscription, setSubscription] = useState<{
     isPremium: boolean;
@@ -33,6 +34,62 @@ const Premium = () => {
       remainingDays: number;
     };
   } | null>(null);
+
+  const fetchSubscriptionData = async () => {
+    if (!user) return;
+    
+    try {
+      setIsRefreshing(true);
+      
+      // Get user subscription data
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('is_premium')
+        .eq('id', user.id)
+        .single();
+      
+      if (profileData?.is_premium) {
+        // Fetch active subscription details
+        const { data: subscriptionData } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            id, 
+            start_date,
+            end_date,
+            premium_plans (name)
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('end_date', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (subscriptionData) {
+          const endDate = new Date(subscriptionData.end_date);
+          const now = new Date();
+          const diffTime = endDate.getTime() - now.getTime();
+          const remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          setSubscription({
+            isPremium: true,
+            subscription: {
+              planName: subscriptionData.premium_plans.name,
+              endDate: subscriptionData.end_date,
+              remainingDays: remainingDays > 0 ? remainingDays : 0
+            }
+          });
+        } else {
+          setSubscription({ isPremium: true });
+        }
+      } else {
+        setSubscription({ isPremium: false });
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchPlans() {
@@ -68,52 +125,8 @@ const Premium = () => {
       }
     }
 
-    async function checkSubscription() {
-      if (!user) return;
-      
-      try {
-        // Lấy token JWT của người dùng hiện tại
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        
-        if (!token) {
-          console.error('No access token available for subscription check');
-          return;
-        }
-        
-        // Sử dụng URL cố định
-        try {
-          const response = await fetch(
-            `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-check-subscription?userId=${user.id}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          
-          if (!response.ok) {
-            console.error('API response not OK:', response.status, response.statusText);
-            const errorText = await response.text();
-            console.error('Subscription check error:', errorText);
-            return;
-          }
-          
-          const data = await response.json();
-          setSubscription(data);
-        } catch (error) {
-          console.error('Network error checking subscription:', error);
-          // Mô phỏng dữ liệu cho trường hợp lỗi mạng
-          setSubscription({ isPremium: false });
-        }
-      } catch (error) {
-        console.error('Error checking subscription:', error);
-      }
-    }
-
     fetchPlans();
-    checkSubscription();
+    fetchSubscriptionData();
   }, [user, toast]);
 
   const handleSelectPlan = (planId: string) => {
@@ -134,6 +147,16 @@ const Premium = () => {
     setShowPaymentDialog(true);
   };
 
+  const handlePaymentSuccess = () => {
+    // Refresh subscription data
+    fetchSubscriptionData();
+    
+    toast({
+      title: "Thanh toán đã được xác nhận!",
+      description: "Tài khoản của bạn đã được nâng cấp lên Premium."
+    });
+  };
+
   // Get the selected plan details
   const selectedPlanDetails = selectedPlan ? plans.find(plan => plan.id === selectedPlan) || null : null;
 
@@ -145,6 +168,13 @@ const Premium = () => {
             <ArrowLeft className="h-5 w-5" />
             <span>Quay lại</span>
           </Link>
+          
+          {isRefreshing && (
+            <div className="ml-auto flex items-center text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              Đang cập nhật...
+            </div>
+          )}
         </div>
       </header>
 
@@ -173,6 +203,7 @@ const Premium = () => {
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
         selectedPlan={selectedPlanDetails}
+        onPaymentSuccess={handlePaymentSuccess}
       />
     </div>
   );
