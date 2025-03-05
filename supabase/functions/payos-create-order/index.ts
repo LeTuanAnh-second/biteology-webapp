@@ -12,11 +12,11 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 }
 
-// PayOS configs - we'll add direct request validation
+// PayOS configs
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
-// Use production URL
+// Production URL
 const PAYOS_API_URL = "https://api.payos.vn";
 
 serve(async (req) => {
@@ -131,7 +131,7 @@ serve(async (req) => {
     // Use application base URL or fallback
     const appBaseUrl = callbackUrl || "https://biteology-webapp.lovable.app";
     
-    // Get webhook URL from the base app URL
+    // Get webhook URL from the base URL
     const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
     console.log("Using webhook URL:", webhookUrl);
     
@@ -170,20 +170,25 @@ serve(async (req) => {
       // Continue anyway to try the payment provider
     }
 
-    // Call PayOS API to create payment with timeout
+    // Call PayOS API to create payment with timeout and more logging
     try {
       // Set a timeout for the fetch request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      console.log("Calling PayOS API...");
+      console.log(`Calling PayOS API at ${PAYOS_API_URL}/v1/payment-requests...`);
+      
+      // Log PayOS headers for debugging
+      const payosHeaders = {
+        'Content-Type': 'application/json',
+        'x-client-id': PAYOS_CLIENT_ID,
+        'x-api-key': PAYOS_API_KEY
+      };
+      console.log("Headers:", JSON.stringify(payosHeaders, null, 2).replace(/("x-api-key": ")[^"]+(")/g, '$1[REDACTED]$2'));
+      
       const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': PAYOS_CLIENT_ID,
-          'x-api-key': PAYOS_API_KEY
-        },
+        headers: payosHeaders,
         body: JSON.stringify(paymentData),
         signal: controller.signal
       }).finally(() => clearTimeout(timeoutId));
@@ -191,17 +196,37 @@ serve(async (req) => {
       console.log("PayOS response status:", payosResponse.status);
 
       if (!payosResponse.ok) {
-        const errorText = await payosResponse.text();
-        console.error("PayOS API error:", payosResponse.status, errorText);
-        throw new Error(`PayOS API error: ${payosResponse.status} - ${errorText}`);
+        let errorText = "";
+        try {
+          errorText = await payosResponse.text();
+        } catch (e) {
+          errorText = "Could not read error response";
+        }
+        console.error(`PayOS API error (${payosResponse.status}):`, errorText);
+        
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Failed to connect to payment provider", 
+            details: `Status ${payosResponse.status}: ${errorText}` 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
 
       const payosResult = await payosResponse.json();
-      console.log("PayOS response:", payosResult);
+      console.log("PayOS response:", JSON.stringify(payosResult, null, 2));
 
       if (!payosResult.data || !payosResult.data.checkoutUrl) {
         console.error("Invalid PayOS response:", payosResult);
-        throw new Error("Invalid response from payment provider");
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Invalid response from payment provider",
+            details: JSON.stringify(payosResult)
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
 
       // Return success with payment data

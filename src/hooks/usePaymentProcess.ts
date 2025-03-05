@@ -88,44 +88,6 @@ export function usePaymentProcess(
     }
   };
 
-  const createMockPaymentOrder = async (planId: string, userId: string) => {
-    // For fallback when PayOS API is unavailable
-    const mockOrderId = `MOCK_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    
-    // Get selected plan details from the database
-    const { data: plan, error } = await supabase
-      .from('premium_plans')
-      .select('*')
-      .eq('id', planId)
-      .single();
-    
-    if (error || !plan) {
-      throw new Error('Could not retrieve plan information');
-    }
-    
-    // Create a transaction record even for the mock payment
-    await supabase
-      .from('payment_transactions')
-      .insert({
-        user_id: userId,
-        plan_id: planId,
-        amount: plan.price,
-        payment_method: 'payos-fallback',
-        status: 'pending',
-        order_id: mockOrderId
-      });
-    
-    // Return mock payment data
-    return {
-      orderId: mockOrderId,
-      qrCodeUrl: "https://placehold.co/400x400/png?text=QR+Code+Unavailable",
-      amount: plan.price,
-      orderInfo: `Nâng cấp tài khoản Premium - ${plan.name} (Chế độ thử nghiệm)`,
-      status: 'pending',
-      paymentUrl: `${window.location.origin}/payment-result?status=demo&orderCode=${mockOrderId}`
-    };
-  };
-
   const handlePurchase = async () => {
     if (!selectedPlan || !user) {
       toast({
@@ -164,6 +126,10 @@ export function usePaymentProcess(
         console.log("Creating order at:", apiUrl);
         console.log("Auth token available:", !!token);
         
+        // Set timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -174,8 +140,9 @@ export function usePaymentProcess(
             planId: selectedPlan,
             userId: user.id,
             callbackUrl: window.location.origin // Pass the origin URL for proper redirection
-          })
-        });
+          }),
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
         
         console.log("Response status:", response.status, response.statusText);
         
@@ -185,22 +152,15 @@ export function usePaymentProcess(
           console.error('Error response:', errorText);
           
           // If we're still within retry attempts, try again
-          if (attempt < 2) {
+          if (attempt < 3) {
             setIsRetrying(true);
             setRetryCount(attempt);
             // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            await new Promise(resolve => setTimeout(resolve, 2000));
             return tryCreateOrder(attempt + 1);
           }
           
-          // After max retries, use fallback mechanism
-          toast({
-            title: "Chuyển sang chế độ thử nghiệm",
-            description: "Không thể kết nối tới cổng thanh toán. Đang chuyển sang chế độ thử nghiệm."
-          });
-          
-          // Use fallback mock payment data
-          return await createMockPaymentOrder(selectedPlan, user.id);
+          throw new Error('Failed to connect to payment provider after multiple attempts');
         }
 
         const result = await response.json();
@@ -216,32 +176,21 @@ export function usePaymentProcess(
         console.error('Error creating order:', error);
         
         // If we're still within retry attempts, try again
-        if (attempt < 2) {
+        if (attempt < 3) {
           setIsRetrying(true);
           setRetryCount(attempt);
           // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 2000));
           return tryCreateOrder(attempt + 1);
         }
         
-        // After max retries, use fallback mechanism
+        // After max retries, report the error
         toast({
-          title: "Chuyển sang chế độ thử nghiệm",
-          description: "Không thể kết nối tới cổng thanh toán. Đang chuyển sang chế độ thử nghiệm."
+          variant: "destructive",
+          title: "Lỗi kết nối",
+          description: "Không thể kết nối tới cổng thanh toán. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
         });
-        
-        try {
-          // Use fallback mock payment data
-          return await createMockPaymentOrder(selectedPlan, user.id);
-        } catch (fallbackError) {
-          console.error('Error with fallback payment:', fallbackError);
-          toast({
-            variant: "destructive",
-            title: "Lỗi thanh toán",
-            description: "Không thể tạo đơn hàng. Vui lòng thử lại sau."
-          });
-          return null;
-        }
+        return null;
       }
     };
     

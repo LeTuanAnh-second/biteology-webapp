@@ -44,7 +44,7 @@ export const PlansDisplay = ({
   const getButtonText = () => {
     if (isProcessing) {
       if (isRetrying) {
-        return `Đang thử lại (${retryCount}/2)...`;
+        return `Đang thử lại (${retryCount}/3)...`;
       }
       return 'Đang xử lý...';
     }

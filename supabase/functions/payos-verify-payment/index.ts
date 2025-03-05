@@ -16,7 +16,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
-// PayOS API configuration - updated to production URL
+// PayOS API configuration - production URL
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_API_URL = "https://api.payos.vn";
@@ -44,19 +44,32 @@ async function verifyPayment(orderId: string) {
     
     console.log('Transaction found:', transaction);
     
-    // In a real implementation, we would call the PayOS API to verify payment status
     try {
-      // Call PayOS API to check payment status
+      // Call PayOS API to check payment status with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      console.log(`Calling PayOS API at ${PAYOS_API_URL}/v1/payment-requests/${orderId}`);
+      
       const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests/${orderId}`, {
         method: 'GET',
         headers: {
           'x-client-id': PAYOS_CLIENT_ID,
           'x-api-key': PAYOS_API_KEY
-        }
-      });
+        },
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeoutId));
       
       if (!payosResponse.ok) {
         console.error('PayOS API error:', payosResponse.status);
+        // Log response body if available
+        try {
+          const errorBody = await payosResponse.text();
+          console.error('Error response body:', errorBody);
+        } catch (e) {
+          console.error('Could not read error response body');
+        }
+        
         // Fall back to checking our database status
         if (transaction.status === 'completed') {
           return { success: true, message: 'Payment already completed' };
@@ -149,7 +162,7 @@ async function verifyPayment(orderId: string) {
       if (transaction.status === 'completed') {
         return { success: true, message: 'Payment already completed' };
       }
-      return { success: false, message: 'Error verifying payment' };
+      return { success: false, message: 'Error verifying payment', error: String(error) };
     }
     
   } catch (error) {
