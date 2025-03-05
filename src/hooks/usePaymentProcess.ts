@@ -47,7 +47,7 @@ export function usePaymentProcess(
         return;
       }
       
-      const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-verify-payment`;
+      const apiUrl = `${supabase.supabaseUrl}/functions/v1/payos-verify-payment`;
       console.log("Checking payment status at:", apiUrl);
       
       const response = await fetch(`${apiUrl}?orderId=${orderId}`, {
@@ -121,14 +121,14 @@ export function usePaymentProcess(
         console.log("Selected plan:", selectedPlan);
         console.log("User ID:", user.id);
         
-        // Use the live PayOS API endpoint
-        const apiUrl = `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-create-order`;
+        // Use the Supabase URL dynamically
+        const apiUrl = `${supabase.supabaseUrl}/functions/v1/payos-create-order`;
         console.log("Creating order at:", apiUrl);
         console.log("Auth token available:", !!token);
         
         // Set timeout for the fetch request
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -147,24 +147,39 @@ export function usePaymentProcess(
         console.log("Response status:", response.status, response.statusText);
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API response not OK:', response.status, response.statusText);
-          console.error('Error response:', errorText);
+          let errorText = "";
+          try {
+            errorText = await response.text();
+            console.error('Error response body:', errorText);
+          } catch (e) {
+            console.error('Could not read error response body');
+          }
           
           // If we're still within retry attempts, try again
           if (attempt < 3) {
             setIsRetrying(true);
             setRetryCount(attempt);
-            // Wait a bit before retrying
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, 3000));
             return tryCreateOrder(attempt + 1);
           }
           
-          throw new Error('Failed to connect to payment provider after multiple attempts');
+          toast({
+            variant: "destructive",
+            title: "Lỗi kết nối",
+            description: "Không thể kết nối tới cổng thanh toán. Vui lòng kiểm tra kết nối mạng hoặc liên hệ hỗ trợ."
+          });
+          throw new Error(`Failed to connect to payment provider: ${errorText}`);
         }
 
-        const result = await response.json();
-        console.log("Order creation response:", result);
+        let result;
+        try {
+          result = await response.json();
+          console.log("Order creation response:", result);
+        } catch (e) {
+          console.error("Error parsing JSON response:", e);
+          throw new Error("Invalid response format from payment provider");
+        }
         
         if (!result.success) {
           throw new Error(result.error || 'Không thể tạo đơn hàng');
@@ -179,8 +194,8 @@ export function usePaymentProcess(
         if (attempt < 3) {
           setIsRetrying(true);
           setRetryCount(attempt);
-          // Wait a bit before retrying
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 3000));
           return tryCreateOrder(attempt + 1);
         }
         
@@ -190,7 +205,7 @@ export function usePaymentProcess(
           title: "Lỗi kết nối",
           description: "Không thể kết nối tới cổng thanh toán. Vui lòng thử lại sau hoặc liên hệ hỗ trợ."
         });
-        return null;
+        throw error;
       }
     };
     
@@ -219,6 +234,13 @@ export function usePaymentProcess(
         window.open(paymentData.paymentUrl, '_blank');
       }
       
+    } catch (error) {
+      console.error("Final error in handlePurchase:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi thanh toán",
+        description: "Đã xảy ra lỗi khi tạo đơn hàng. Vui lòng thử lại sau."
+      });
     } finally {
       setIsProcessing(false);
       setIsRetrying(false);

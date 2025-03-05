@@ -44,24 +44,49 @@ async function verifyPayment(orderId: string) {
     
     console.log('Transaction found:', transaction);
     
+    // Verify that we have all needed PayOS credentials
+    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
+      console.error('Missing PayOS credentials required for verification');
+      return { success: false, message: 'Payment provider configuration error' };
+    }
+    
     try {
       // Call PayOS API to check payment status with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       console.log(`Calling PayOS API at ${PAYOS_API_URL}/v1/payment-requests/${orderId}`);
       
-      const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests/${orderId}`, {
-        method: 'GET',
-        headers: {
-          'x-client-id': PAYOS_CLIENT_ID,
-          'x-api-key': PAYOS_API_KEY
-        },
-        signal: controller.signal
-      }).finally(() => clearTimeout(timeoutId));
+      let payosResponse;
+      try {
+        payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests/${orderId}`, {
+          method: 'GET',
+          headers: {
+            'x-client-id': PAYOS_CLIENT_ID,
+            'x-api-key': PAYOS_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        console.error('Fetch error when checking payment status:', fetchError);
+        clearTimeout(timeoutId);
+        
+        // Fall back to checking our database status
+        if (transaction.status === 'completed') {
+          return { success: true, message: 'Payment already completed' };
+        }
+        return { 
+          success: false, 
+          message: 'Failed to verify payment with provider', 
+          error: fetchError.message 
+        };
+      } finally {
+        clearTimeout(timeoutId);
+      }
       
       if (!payosResponse.ok) {
-        console.error('PayOS API error:', payosResponse.status);
+        console.error('PayOS API error:', payosResponse.status, payosResponse.statusText);
         // Log response body if available
         try {
           const errorBody = await payosResponse.text();
@@ -74,11 +99,29 @@ async function verifyPayment(orderId: string) {
         if (transaction.status === 'completed') {
           return { success: true, message: 'Payment already completed' };
         }
-        return { success: false, message: 'Failed to verify payment with provider' };
+        return { 
+          success: false, 
+          message: 'Failed to verify payment with provider', 
+          error: `Status ${payosResponse.status}`
+        };
       }
       
-      const payosResult = await payosResponse.json();
-      console.log('PayOS verification result:', payosResult);
+      let payosResult;
+      try {
+        payosResult = await payosResponse.json();
+        console.log('PayOS verification result:', payosResult);
+      } catch (jsonError) {
+        console.error('Failed to parse PayOS response:', jsonError);
+        // Fall back to checking our database status
+        if (transaction.status === 'completed') {
+          return { success: true, message: 'Payment already completed' };
+        }
+        return { 
+          success: false, 
+          message: 'Invalid response from payment provider', 
+          error: jsonError.message
+        };
+      }
       
       const isSuccessful = payosResult.data && 
                          (payosResult.data.status === 'PAID' || 

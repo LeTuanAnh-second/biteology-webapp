@@ -44,7 +44,7 @@ export const PlansDisplay = ({
   const getButtonText = () => {
     if (isProcessing) {
       if (isRetrying) {
-        return `Đang thử lại (${retryCount}/3)...`;
+        return `Đang thử kết nối lại (${retryCount}/3)...`;
       }
       return 'Đang xử lý...';
     }
@@ -64,10 +64,10 @@ export const PlansDisplay = ({
         ))}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center">
         <button
           type="button"
-          className="primary-button flex items-center"
+          className="primary-button flex items-center mb-2"
           disabled={!selectedPlan || isProcessing}
           onClick={onPurchase}
         >
@@ -76,6 +76,12 @@ export const PlansDisplay = ({
           )}
           {getButtonText()}
         </button>
+        
+        {isProcessing && isRetrying && (
+          <p className="text-sm text-amber-600 mt-2">
+            Đang cố gắng kết nối đến cổng thanh toán. Vui lòng đợi trong giây lát...
+          </p>
+        )}
       </div>
     </>
   );

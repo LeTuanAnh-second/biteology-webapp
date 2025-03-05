@@ -61,10 +61,10 @@ serve(async (req) => {
     });
 
     // Validate PayOS credentials before proceeding
-    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
+    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY || !PAYOS_CHECKSUM_KEY) {
       console.error("Missing PayOS credentials");
       return new Response(
-        JSON.stringify({ success: false, error: "Payment provider configuration error" }),
+        JSON.stringify({ success: false, error: "Payment provider configuration error: Missing PayOS credentials" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
@@ -93,7 +93,18 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const requestData = await req.json();
+    let requestData;
+    try {
+      requestData = await req.json();
+      console.log("Parsed request data:", requestData);
+    } catch (error) {
+      console.error("Error parsing request body:", error);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid request body" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
+    }
+    
     const { planId, userId, callbackUrl } = requestData;
 
     console.log("Request data:", { planId, userId, callbackUrl });
@@ -146,7 +157,7 @@ serve(async (req) => {
       webhookUrl: webhookUrl
     };
 
-    console.log("Payment data:", paymentData);
+    console.log("Payment data to send to PayOS:", JSON.stringify(paymentData, null, 2));
 
     // Store transaction in database first (before the API call)
     try {
@@ -174,7 +185,7 @@ serve(async (req) => {
     try {
       // Set a timeout for the fetch request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       console.log(`Calling PayOS API at ${PAYOS_API_URL}/v1/payment-requests...`);
       
@@ -184,16 +195,26 @@ serve(async (req) => {
         'x-client-id': PAYOS_CLIENT_ID,
         'x-api-key': PAYOS_API_KEY
       };
-      console.log("Headers:", JSON.stringify(payosHeaders, null, 2).replace(/("x-api-key": ")[^"]+(")/g, '$1[REDACTED]$2'));
+      console.log("Headers:", JSON.stringify({...payosHeaders, 'x-api-key': '[REDACTED]'}, null, 2));
       
-      const payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests`, {
-        method: 'POST',
-        headers: payosHeaders,
-        body: JSON.stringify(paymentData),
-        signal: controller.signal
-      }).finally(() => clearTimeout(timeoutId));
+      // Make the API call with a longer timeout
+      let payosResponse;
+      try {
+        payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests`, {
+          method: 'POST',
+          headers: payosHeaders,
+          body: JSON.stringify(paymentData),
+          signal: controller.signal
+        });
+      } catch (fetchError) {
+        console.error("Fetch error when calling PayOS:", fetchError);
+        clearTimeout(timeoutId);
+        throw new Error(`Network error when calling PayOS: ${fetchError.message}`);
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
-      console.log("PayOS response status:", payosResponse.status);
+      console.log("PayOS response status:", payosResponse.status, payosResponse.statusText);
 
       if (!payosResponse.ok) {
         let errorText = "";
@@ -214,8 +235,21 @@ serve(async (req) => {
         );
       }
 
-      const payosResult = await payosResponse.json();
-      console.log("PayOS response:", JSON.stringify(payosResult, null, 2));
+      let payosResult;
+      try {
+        payosResult = await payosResponse.json();
+        console.log("PayOS response:", JSON.stringify(payosResult, null, 2));
+      } catch (jsonError) {
+        console.error("Failed to parse PayOS response:", jsonError);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Invalid response from payment provider", 
+            details: "Failed to parse response as JSON" 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
 
       if (!payosResult.data || !payosResult.data.checkoutUrl) {
         console.error("Invalid PayOS response:", payosResult);
