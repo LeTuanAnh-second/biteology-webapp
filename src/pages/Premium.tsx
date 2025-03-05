@@ -36,6 +36,8 @@ const Premium = () => {
 
   const {
     isProcessing,
+    isRetrying,
+    retryCount,
     qrPaymentData,
     showQRDialog,
     paymentStatus,
@@ -159,6 +161,8 @@ const Premium = () => {
           onSelectPlan={handleSelectPlan}
           onPurchase={handlePurchase}
           isProcessing={isProcessing}
+          isRetrying={isRetrying}
+          retryCount={retryCount}
         />
       </main>
 

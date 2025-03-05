@@ -19,6 +19,8 @@ interface PlansDisplayProps {
   onSelectPlan: (planId: string) => void;
   onPurchase: () => void;
   isProcessing: boolean;
+  isRetrying?: boolean;
+  retryCount?: number;
 }
 
 export const PlansDisplay = ({
@@ -27,7 +29,9 @@ export const PlansDisplay = ({
   selectedPlan,
   onSelectPlan,
   onPurchase,
-  isProcessing
+  isProcessing,
+  isRetrying = false,
+  retryCount = 0
 }: PlansDisplayProps) => {
   if (isLoading) {
     return (
@@ -36,6 +40,16 @@ export const PlansDisplay = ({
       </div>
     );
   }
+
+  const getButtonText = () => {
+    if (isProcessing) {
+      if (isRetrying) {
+        return `Đang thử lại (${retryCount}/2)...`;
+      }
+      return 'Đang xử lý...';
+    }
+    return 'Thanh toán với PayOS';
+  };
 
   return (
     <>
@@ -57,14 +71,10 @@ export const PlansDisplay = ({
           disabled={!selectedPlan || isProcessing}
           onClick={onPurchase}
         >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Đang xử lý...
-            </>
-          ) : (
-            'Thanh toán với PayOS'
+          {isProcessing && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}
+          {getButtonText()}
         </button>
       </div>
     </>
