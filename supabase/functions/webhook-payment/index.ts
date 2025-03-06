@@ -13,6 +13,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -23,10 +24,30 @@ serve(async (req) => {
       SUPABASE_SERVICE_ROLE_KEY
     )
 
+    // Get request data and headers
     const webhookData = await req.json()
-    console.log('Received webhook:', webhookData)
+    const signature = req.headers.get('x-payos-signature')
+
+    if (!signature) {
+      console.error('Missing PayOS signature')
+      return new Response(
+        JSON.stringify({ error: 'Missing signature' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Received webhook data:', webhookData)
+    console.log('Signature:', signature)
 
     const { orderCode, status, amount, transactionId } = webhookData
+
+    if (!orderCode) {
+      console.error('Missing orderCode in webhook data')
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook data' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Find the payment transaction
     const { data: transaction, error: transactionError } = await supabase
@@ -63,6 +84,7 @@ serve(async (req) => {
 
     // If payment is successful, create or update subscription
     if (status === 'PAID') {
+      // Get plan details
       const { data: plan } = await supabase
         .from('premium_plans')
         .select('*')
@@ -115,10 +137,16 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 200, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+        } 
+      }
     )
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Error processing webhook:', error)
     return new Response(
       JSON.stringify({ error: 'Internal Server Error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
