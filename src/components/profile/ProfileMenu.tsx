@@ -26,6 +26,8 @@ const ProfileMenu = () => {
     
     if (!error && data) {
       setProfile(data);
+    } else {
+      console.log("Error fetching profile or no profile found:", error);
     }
   };
 

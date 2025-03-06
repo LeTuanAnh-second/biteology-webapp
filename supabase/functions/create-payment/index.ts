@@ -53,7 +53,7 @@ serve(async (req) => {
         orderCode: orderCode,
         returnUrl: 'https://biteology.netlify.app/payment-success',
         cancelUrl: 'https://biteology.netlify.app/payment-cancel',
-        webhookUrl: 'https://biteology.netlify.app/api/payment-webhook'
+        webhookUrl: 'https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/webhook-payment'
       })
     })
 

@@ -97,39 +97,51 @@ serve(async (req) => {
         endDate.setFullYear(endDate.getFullYear() + 1)
       }
 
-      // Update or create subscription
-      const { data: existingSubscription } = await supabase
-        .from('subscription_detail')
-        .select('*')
-        .eq('user_id', transactionData.user_id)
-        .single()
-
-      if (existingSubscription) {
-        // Update existing subscription
-        const { error: subError } = await supabase
+      try {
+        // First check if there's an existing subscription
+        const { data: existingSubscription } = await supabase
           .from('subscription_detail')
-          .update({
-            plan_name: transactionData.plan_name,
-            start_date: currentDate.toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'ACTIVE'
-          })
+          .select('*')
           .eq('user_id', transactionData.user_id)
+          .maybeSingle()
 
-        if (subError) console.error('Error updating subscription:', subError)
-      } else {
-        // Create new subscription
-        const { error: subError } = await supabase
-          .from('subscription_detail')
-          .insert({
-            user_id: transactionData.user_id,
-            plan_name: transactionData.plan_name,
-            start_date: currentDate.toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'ACTIVE'
-          })
+        if (existingSubscription) {
+          // Update existing subscription
+          const { error: subError } = await supabase
+            .from('subscription_detail')
+            .update({
+              plan_name: transactionData.plan_name,
+              start_date: currentDate.toISOString(),
+              end_date: endDate.toISOString(),
+              status: 'ACTIVE'
+            })
+            .eq('user_id', transactionData.user_id)
 
-        if (subError) console.error('Error creating subscription:', subError)
+          if (subError) console.error('Error updating subscription:', subError)
+        } else {
+          // Create new subscription
+          const { error: subError } = await supabase
+            .from('subscription_detail')
+            .insert({
+              user_id: transactionData.user_id,
+              plan_name: transactionData.plan_name,
+              start_date: currentDate.toISOString(),
+              end_date: endDate.toISOString(),
+              status: 'ACTIVE'
+            })
+
+          if (subError) console.error('Error creating subscription:', subError)
+        }
+
+        // Also update the profile's is_premium flag
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ is_premium: true })
+          .eq('id', transactionData.user_id)
+
+        if (profileError) console.error('Error updating profile premium status:', profileError)
+      } catch (error) {
+        console.error('Error managing subscription:', error)
       }
     }
 
