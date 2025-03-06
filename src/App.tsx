@@ -14,8 +14,6 @@ import HealthTracking from "./pages/HealthTracking";
 import NutritionAdvice from "./pages/NutritionAdvice";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Profile from "./pages/Profile";
-import Premium from "./pages/Premium";
-import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient();
 
@@ -35,22 +33,6 @@ const App = () => (
               element={
                 <PrivateRoute>
                   <Profile />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/premium"
-              element={
-                <PrivateRoute>
-                  <Premium />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/payment-result"
-              element={
-                <PrivateRoute>
-                  <PaymentResult />
                 </PrivateRoute>
               }
             />

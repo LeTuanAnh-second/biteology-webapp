@@ -245,93 +245,12 @@ export type Database = {
         }
         Relationships: []
       }
-      payment_transactions: {
-        Row: {
-          amount: number
-          created_at: string | null
-          id: string
-          order_id: string | null
-          payment_id: string | null
-          payment_method: string
-          plan_id: string
-          status: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string | null
-          id?: string
-          order_id?: string | null
-          payment_id?: string | null
-          payment_method: string
-          plan_id: string
-          status?: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string | null
-          id?: string
-          order_id?: string | null
-          payment_id?: string | null
-          payment_method?: string
-          plan_id?: string
-          status?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_transactions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "premium_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      premium_plans: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          duration_days: number
-          features: Json | null
-          id: string
-          name: string
-          price: number
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          duration_days: number
-          features?: Json | null
-          id?: string
-          name: string
-          price: number
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          duration_days?: number
-          features?: Json | null
-          id?: string
-          name?: string
-          price?: number
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           avatar_url: string | null
           created_at: string | null
           full_name: string | null
           id: string
-          is_premium: boolean | null
           phone_number: string | null
           updated_at: string | null
         }
@@ -340,7 +259,6 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id: string
-          is_premium?: boolean | null
           phone_number?: string | null
           updated_at?: string | null
         }
@@ -349,7 +267,6 @@ export type Database = {
           created_at?: string | null
           full_name?: string | null
           id?: string
-          is_premium?: boolean | null
           phone_number?: string | null
           updated_at?: string | null
         }
@@ -430,57 +347,6 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_subscriptions: {
-        Row: {
-          created_at: string | null
-          end_date: string
-          id: string
-          plan_id: string
-          start_date: string
-          status: string
-          transaction_id: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          end_date: string
-          id?: string
-          plan_id: string
-          start_date?: string
-          status?: string
-          transaction_id: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          end_date?: string
-          id?: string
-          plan_id?: string
-          start_date?: string
-          status?: string
-          transaction_id?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_subscriptions_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "premium_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_subscriptions_transaction_id_fkey"
-            columns: ["transaction_id"]
-            isOneToOne: false
-            referencedRelation: "payment_transactions"
             referencedColumns: ["id"]
           },
         ]
