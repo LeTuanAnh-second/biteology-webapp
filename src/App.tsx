@@ -15,8 +15,7 @@ import NutritionAdvice from "./pages/NutritionAdvice";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Profile from "./pages/Profile";
 import Premium from "./pages/Premium";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentCancel from "./pages/PaymentCancel";
+import PaymentResult from "./pages/PaymentResult";
 
 const queryClient = new QueryClient();
 
@@ -48,18 +47,10 @@ const App = () => (
               }
             />
             <Route
-              path="/payment-success"
+              path="/payment-result"
               element={
                 <PrivateRoute>
-                  <PaymentSuccess />
-                </PrivateRoute>
-              }
-            />
-            <Route
-              path="/payment-cancel"
-              element={
-                <PrivateRoute>
-                  <PaymentCancel />
+                  <PaymentResult />
                 </PrivateRoute>
               }
             />

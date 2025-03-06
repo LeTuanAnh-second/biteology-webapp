@@ -1,5 +1,5 @@
 
-import { LogOut, User, ChevronDown } from "lucide-react";
+import { LogOut, User, ChevronDown, Crown } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DropdownMenu,
@@ -13,21 +13,19 @@ import { supabase } from "@/lib/supabase";
 
 const ProfileMenu = () => {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<{ full_name: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string | null; is_premium?: boolean } | null>(null);
 
   const fetchProfile = async () => {
     if (!user?.id) return;
     
     const { data, error } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, is_premium')
       .eq('id', user.id)
       .single();
     
     if (!error && data) {
       setProfile(data);
-    } else {
-      console.log("Error fetching profile or no profile found:", error);
     }
   };
 
@@ -66,6 +64,9 @@ const ProfileMenu = () => {
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent">
         <span className="max-w-[200px] truncate">{displayName}</span>
+        {profile?.is_premium && (
+          <Crown className="h-4 w-4 text-yellow-500" />
+        )}
         <ChevronDown className="h-4 w-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[200px]">
@@ -77,10 +78,8 @@ const ProfileMenu = () => {
         </DropdownMenuItem>
         <DropdownMenuItem>
           <Link to="/premium" className="flex items-center gap-2 w-full">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-            </svg>
-            <span>Nâng cấp tài khoản</span>
+            <Crown className="h-4 w-4" />
+            <span>{profile?.is_premium ? 'Quản lý Premium' : 'Nâng cấp Premium'}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={logout}>
