@@ -1,6 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.1'
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { create } from 'https://deno.land/x/djwt@v2.8/mod.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +13,6 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -23,112 +23,93 @@ serve(async (req) => {
       SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Get webhook data
     const webhookData = await req.json()
     console.log('Received webhook:', webhookData)
 
-    // TODO: Verify checksum when needed
-    // For now, process the webhook data
-
     const { orderCode, status, amount, transactionId } = webhookData
 
-    if (!orderCode || !status) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid webhook data' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Update payment status in database
-    const { data: transactionData, error: fetchError } = await supabase
+    // Find the payment transaction
+    const { data: transaction, error: transactionError } = await supabase
       .from('payment_transactions')
       .select('*')
-      .eq('order_code', orderCode)
+      .eq('order_id', orderCode)
       .single()
 
-    if (fetchError) {
-      console.error('Error fetching transaction:', fetchError)
+    if (transactionError || !transaction) {
+      console.error('Transaction not found:', transactionError)
       return new Response(
         JSON.stringify({ error: 'Transaction not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Update the transaction
+    // Update transaction status
     const { error: updateError } = await supabase
       .from('payment_transactions')
       .update({ 
         status: status,
-        updated_at: new Date().toISOString(),
-        transaction_id: transactionId
+        payment_id: transactionId,
+        updated_at: new Date().toISOString()
       })
-      .eq('order_code', orderCode)
+      .eq('order_id', orderCode)
 
     if (updateError) {
       console.error('Error updating transaction:', updateError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to update transaction' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // If status is PAID, update user's subscription
-    if (status === 'PAID' && transactionData) {
-      const currentDate = new Date()
-      let endDate = new Date(currentDate)
-      
-      // Set subscription end date based on plan
-      if (transactionData.plan_name.includes('Monthly')) {
-        endDate.setMonth(endDate.getMonth() + 1)
-      } else if (transactionData.plan_name.includes('Yearly')) {
-        endDate.setFullYear(endDate.getFullYear() + 1)
+    // If payment is successful, create or update subscription
+    if (status === 'PAID') {
+      const { data: plan } = await supabase
+        .from('premium_plans')
+        .select('*')
+        .eq('id', transaction.plan_id)
+        .single()
+
+      if (!plan) {
+        console.error('Plan not found')
+        return new Response(
+          JSON.stringify({ error: 'Plan not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
-      try {
-        // First check if there's an existing subscription using UUID match
-        const { data: existingSubscription } = await supabase
-          .from('subscription_detail')
-          .select('*')
-          .eq('user_id', transactionData.user_id)
-          .maybeSingle()
+      // Calculate end date based on plan duration
+      const startDate = new Date()
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + plan.duration_days)
 
-        if (existingSubscription) {
-          // Update existing subscription
-          const { error: subError } = await supabase
-            .from('subscription_detail')
-            .update({
-              plan_name: transactionData.plan_name,
-              start_date: currentDate.toISOString(),
-              end_date: endDate.toISOString(),
-              status: 'ACTIVE'
-            })
-            .eq('user_id', transactionData.user_id)
+      // Create subscription
+      const { error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: transaction.user_id,
+          plan_id: plan.id,
+          transaction_id: transaction.id,
+          start_date: startDate.toISOString(),
+          end_date: endDate.toISOString(),
+          status: 'active'
+        })
 
-          if (subError) console.error('Error updating subscription:', subError)
-        } else {
-          // Create new subscription
-          const { error: subError } = await supabase
-            .from('subscription_detail')
-            .insert({
-              user_id: transactionData.user_id,
-              plan_name: transactionData.plan_name,
-              start_date: currentDate.toISOString(),
-              end_date: endDate.toISOString(),
-              status: 'ACTIVE'
-            })
-
-          if (subError) console.error('Error creating subscription:', subError)
-        }
-      } catch (error) {
-        console.error('Error managing subscription:', error)
+      if (subscriptionError) {
+        console.error('Error creating subscription:', subscriptionError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to create subscription' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
-      // Also update the profile's is_premium flag
-      try {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ is_premium: true })
-          .eq('id', transactionData.user_id)
+      // Update user's premium status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ is_premium: true })
+        .eq('id', transaction.user_id)
 
-        if (profileError) console.error('Error updating profile premium status:', profileError)
-      } catch (error) {
-        console.error('Error updating profile:', error)
+      if (profileError) {
+        console.error('Error updating profile:', profileError)
       }
     }
 

@@ -36,8 +36,8 @@ serve(async (req) => {
       )
     }
 
-    // Generate unique orderCode
-    const orderCode = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    // Generate unique orderCode (using UUID v4 for better uniqueness)
+    const orderCode = crypto.randomUUID()
 
     // Call PayOS API to create payment request
     const paymentResponse = await fetch('https://api.payos.vn/v2/payment-requests', {
@@ -58,43 +58,66 @@ serve(async (req) => {
     })
 
     const paymentData = await paymentResponse.json()
+    console.log('PayOS response:', paymentData)
 
     if (!paymentData.checkoutUrl) {
       console.error('PayOS error:', paymentData)
       return new Response(
-        JSON.stringify({ error: 'Failed to create payment request' }),
+        JSON.stringify({ error: 'Failed to create payment request', details: paymentData }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    // Get plan details
+    const { data: planData, error: planError } = await supabase
+      .from('premium_plans')
+      .select('id')
+      .eq('name', planName)
+      .single()
+
+    if (planError || !planData) {
+      console.error('Error fetching plan:', planError)
+      return new Response(
+        JSON.stringify({ error: 'Plan not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Store payment information in Supabase
-    const { data, error } = await supabase
+    const { data: transactionData, error: transactionError } = await supabase
       .from('payment_transactions')
       .insert({
         user_id: userId,
-        order_code: orderCode,
+        plan_id: planData.id,
         amount: amount,
-        plan_name: planName,
-        status: 'PENDING',
-        created_at: new Date().toISOString()
+        payment_method: 'payos',
+        status: 'pending',
+        order_id: orderCode
       })
+      .select()
+      .single()
 
-    if (error) {
-      console.error('Supabase error:', error)
+    if (transactionError) {
+      console.error('Error creating transaction:', transactionError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to create transaction' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Return the checkout URL
+    // Return the checkout URL and order code
     return new Response(
       JSON.stringify({ 
         checkoutUrl: paymentData.checkoutUrl,
-        orderCode: orderCode
+        orderCode: orderCode,
+        transactionId: transactionData.id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error' }),
+      JSON.stringify({ error: 'Internal Server Error', details: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
