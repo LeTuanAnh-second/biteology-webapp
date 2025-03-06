@@ -17,6 +17,15 @@ interface Subscription {
   status: string;
 }
 
+interface PremiumPlan {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  duration_days: number;
+  features: any;
+}
+
 const Premium = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -26,10 +35,36 @@ const Premium = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [orderCode, setOrderCode] = useState("");
+  const [plans, setPlans] = useState<PremiumPlan[]>([]);
 
   useEffect(() => {
     fetchSubscriptionData();
+    fetchPremiumPlans();
   }, [user]);
+
+  const fetchPremiumPlans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("premium_plans")
+        .select("*")
+        .order("price", { ascending: true });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setPlans(data);
+      }
+    } catch (error) {
+      console.error("Error fetching premium plans:", error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Không thể tải thông tin các gói dịch vụ",
+      });
+    }
+  };
 
   const fetchSubscriptionData = async () => {
     if (!user) return;
@@ -75,7 +110,7 @@ const Premium = () => {
     }
   };
 
-  const handleSelectPlan = async (planName: string, amount: number) => {
+  const handleSelectPlan = async (planId: string) => {
     if (!user) {
       toast({
         variant: "destructive",
@@ -89,8 +124,7 @@ const Premium = () => {
     try {
       const response = await supabase.functions.invoke("create-payment", {
         body: {
-          amount,
-          planName,
+          planId,
           userId: user.id,
         },
       });
@@ -205,6 +239,7 @@ const Premium = () => {
             </div>
           ) : (
             <PlansDisplay 
+              plans={plans}
               onSelectPlan={handleSelectPlan} 
               isLoading={isProcessingPayment} 
             />

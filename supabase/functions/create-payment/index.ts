@@ -26,13 +26,28 @@ serve(async (req) => {
     )
 
     // Get request body
-    const { amount, planName, userId } = await req.json()
+    const { planId, userId } = await req.json()
 
     // Validate parameters
-    if (!amount || !planName || !userId) {
+    if (!planId || !userId) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Get plan details from the premium_plans table
+    const { data: plan, error: planError } = await supabase
+      .from('premium_plans')
+      .select('*')
+      .eq('id', planId)
+      .single()
+
+    if (planError || !plan) {
+      console.error('Error fetching plan:', planError)
+      return new Response(
+        JSON.stringify({ error: 'Plan not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -48,8 +63,8 @@ serve(async (req) => {
         'x-client-id': PAYOS_CLIENT_ID
       },
       body: JSON.stringify({
-        amount: amount,
-        description: `Thanh toán gói ${planName} Biteology`,
+        amount: plan.price,
+        description: `Thanh toán gói ${plan.name} Biteology`,
         orderCode: orderCode,
         returnUrl: 'https://biteology.netlify.app/payment-success',
         cancelUrl: 'https://biteology.netlify.app/payment-cancel',
@@ -68,28 +83,13 @@ serve(async (req) => {
       )
     }
 
-    // Get plan details
-    const { data: planData, error: planError } = await supabase
-      .from('premium_plans')
-      .select('id')
-      .eq('name', planName)
-      .single()
-
-    if (planError || !planData) {
-      console.error('Error fetching plan:', planError)
-      return new Response(
-        JSON.stringify({ error: 'Plan not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Store payment information in Supabase
     const { data: transactionData, error: transactionError } = await supabase
       .from('payment_transactions')
       .insert({
         user_id: userId,
-        plan_id: planData.id,
-        amount: amount,
+        plan_id: plan.id,
+        amount: plan.price,
         payment_method: 'payos',
         status: 'pending',
         order_id: orderCode
