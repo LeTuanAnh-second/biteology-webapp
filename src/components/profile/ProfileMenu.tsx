@@ -13,20 +13,51 @@ import { supabase } from "@/lib/supabase";
 
 const ProfileMenu = () => {
   const { user, logout } = useAuth();
-  const [profile, setProfile] = useState<{ full_name: string | null; is_premium?: boolean } | null>(null);
+  const [profile, setProfile] = useState<{ 
+    full_name: string | null; 
+    is_premium?: boolean;
+    plan_name?: string | null; 
+  } | null>(null);
 
   const fetchProfile = async () => {
     if (!user?.id) return;
     
+    // Fetch basic profile info
     const { data, error } = await supabase
       .from('profiles')
       .select('full_name, is_premium')
       .eq('id', user.id)
       .single();
     
-    if (!error && data) {
-      setProfile(data);
+    if (error || !data) {
+      console.error('Error fetching profile:', error);
+      return;
     }
+    
+    // If user is premium, fetch active subscription details
+    if (data.is_premium) {
+      const { data: subscriptionData, error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          id,
+          premium_plans (name)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('end_date', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (!subscriptionError && subscriptionData) {
+        setProfile({
+          ...data,
+          plan_name: subscriptionData.premium_plans?.name
+        });
+        return;
+      }
+    }
+    
+    setProfile(data);
   };
 
   // Listen for realtime changes on the profiles table
@@ -65,7 +96,14 @@ const ProfileMenu = () => {
       <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-accent">
         <span className="max-w-[200px] truncate">{displayName}</span>
         {profile?.is_premium && (
-          <Crown className="h-4 w-4 text-yellow-500" />
+          <div className="flex items-center gap-1">
+            <Crown className="h-4 w-4 text-yellow-500" />
+            {profile.plan_name && (
+              <span className="text-xs text-yellow-500 font-medium">
+                {profile.plan_name}
+              </span>
+            )}
+          </div>
         )}
         <ChevronDown className="h-4 w-4" />
       </DropdownMenuTrigger>
