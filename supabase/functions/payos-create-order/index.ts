@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
@@ -11,7 +12,7 @@ const corsHeaders = {
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
-const PAYOS_API_URL = "https://api.payos.vn/v2";  // Changed to production URL
+const PAYOS_API_URL = "https://api.payos.vn/v2";  // Production URL
 const USE_MOCK_RESPONSE = false;  // Disabled mock responses
 
 serve(async (req) => {
@@ -109,7 +110,6 @@ serve(async (req) => {
     // Create PayOS payment request
     const returnUrl = `${Deno.env.get("APP_URL") || "https://biteology.netlify.app"}/payment-result?orderCode=${orderId}`;
     const cancelUrl = `${Deno.env.get("APP_URL") || "https://biteology.netlify.app"}/payment-result?status=cancelled&orderCode=${orderId}`;
-    const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
     
     const paymentData = {
       orderCode: orderId,
@@ -134,22 +134,6 @@ serve(async (req) => {
     console.log("PayOS Checksum Key:", PAYOS_CHECKSUM_KEY ? "Set" : "Not set");
 
     try {
-      if (USE_MOCK_RESPONSE) {
-        console.log("Using mock response for testing");
-        // Simulated response for development/testing
-        const mockResponse = {
-          success: true,
-          orderId,
-          checkoutUrl: "https://sandbox.payos.vn/web-payment?token=123abc",
-          qrCode: "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://sandbox.payos.vn/web-payment?token=123abc"
-        };
-
-        return new Response(
-          JSON.stringify(mockResponse),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-
       // Actual PayOS API call
       const payosResponse = await fetch(`${PAYOS_API_URL}/payment-requests`, {
         method: 'POST',
@@ -201,23 +185,6 @@ serve(async (req) => {
       );
     } catch (error) {
       console.error("PayOS API error:", error);
-      
-      if (USE_MOCK_RESPONSE) {
-        console.log("Network error occurred, but using mock response for testing");
-        // Provide mock response even on failure
-        const mockResponse = {
-          success: true,
-          orderId,
-          checkoutUrl: "https://sandbox.payos.vn/web-payment?token=123abc",
-          qrCode: "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://sandbox.payos.vn/web-payment?token=123abc"
-        };
-
-        return new Response(
-          JSON.stringify(mockResponse),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-      
       return new Response(
         JSON.stringify({ success: false, error: String(error) }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
@@ -226,23 +193,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Unexpected error:", error);
-    
-    // Provide mock response even on unexpected errors if mock mode is enabled
-    if (USE_MOCK_RESPONSE) {
-      const orderId = `ORDER_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      const mockResponse = {
-        success: true,
-        orderId,
-        checkoutUrl: "https://sandbox.payos.vn/web-payment?token=123abc",
-        qrCode: "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://sandbox.payos.vn/web-payment?token=123abc"
-      };
-
-      return new Response(
-        JSON.stringify(mockResponse),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
-    
     return new Response(
       JSON.stringify({ success: false, error: String(error) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }

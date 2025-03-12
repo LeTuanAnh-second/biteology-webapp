@@ -38,28 +38,18 @@ const PaymentResult = () => {
         }
         
         // Call the backend to verify the payment
-        const response = await fetch(
-          `https://ijvtkufzaweqzwczpvgr.supabase.co/functions/v1/payos-verify-payment?orderId=${orderCode}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
+        const response = await supabase.functions.invoke('payos-verify-payment', {
+          body: { orderId: orderCode }
+        });
         
-        if (!response.ok) {
-          console.error('API response not OK:', response.status, response.statusText);
-          const errorText = await response.text();
-          console.error('Payment verification error:', errorText);
-          
+        if (!response.data) {
+          console.error('API response not OK:', response.error);
           setStatus('error');
           setMessage("Không thể xác minh trạng thái thanh toán. Vui lòng liên hệ với chúng tôi.");
           return;
         }
         
-        const data = await response.json();
+        const data = response.data;
         
         if (data.success) {
           setStatus('success');

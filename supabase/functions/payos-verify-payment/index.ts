@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
@@ -78,66 +79,10 @@ serve(async (req) => {
       );
     }
 
-    // For testing purposes, use mock response
-    if (USE_MOCK_RESPONSE) {
-      console.log("Using mock response for verify payment");
-      
-      // Simulate a successful payment (with 30% chance of success for testing)
-      const isSuccess = Math.random() < 0.3;
-      
-      if (isSuccess) {
-        // Update transaction status
-        await supabase
-          .from('payment_transactions')
-          .update({ status: 'completed' })
-          .eq('order_id', orderId);
-
-        // Get plan details from the transaction
-        const { data: plan } = await supabase
-          .from('premium_plans')
-          .select('*')
-          .eq('id', transaction.plan_id)
-          .single();
-
-        if (plan) {
-          // Calculate subscription end date
-          const now = new Date();
-          const endDate = new Date(now);
-          endDate.setDate(now.getDate() + plan.duration_days);
-
-          // Create subscription record
-          await supabase
-            .from('user_subscriptions')
-            .insert({
-              user_id: transaction.user_id,
-              plan_id: transaction.plan_id,
-              payment_id: transaction.id,
-              start_date: now.toISOString(),
-              end_date: endDate.toISOString(),
-              status: 'active'
-            });
-
-          // Update user profile to premium
-          await supabase
-            .from('profiles')
-            .update({ is_premium: true })
-            .eq('id', transaction.user_id);
-        }
-
-        return new Response(
-          JSON.stringify({ success: true, message: "Payment completed successfully" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      } else {
-        return new Response(
-          JSON.stringify({ success: false, message: "Payment is still pending" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-    }
-
     // Make request to PayOS API to check payment status
     try {
+      console.log(`Checking payment status for order ${orderId} at ${PAYOS_API_URL}`);
+      
       const payosResponse = await fetch(`${PAYOS_API_URL}/payment-requests/${orderId}`, {
         method: 'GET',
         headers: {
@@ -148,8 +93,15 @@ serve(async (req) => {
 
       if (!payosResponse.ok) {
         console.error(`PayOS API error: ${payosResponse.status}`);
+        const errorText = await payosResponse.text();
+        console.error(`PayOS error response: ${errorText}`);
+        
         return new Response(
-          JSON.stringify({ success: false, error: "Error checking payment status" }),
+          JSON.stringify({ 
+            success: false, 
+            error: "Error checking payment status", 
+            details: `Status: ${payosResponse.status}, Response: ${errorText}`
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
@@ -159,7 +111,11 @@ serve(async (req) => {
 
       if (!payosResult.code || payosResult.code !== '00') {
         return new Response(
-          JSON.stringify({ success: false, error: "Invalid PayOS response" }),
+          JSON.stringify({ 
+            success: false, 
+            error: "Invalid PayOS response", 
+            details: payosResult 
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
