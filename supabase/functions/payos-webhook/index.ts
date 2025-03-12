@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
-import { createHmac } from "https://deno.land/std@0.198.0/node/crypto.ts";
+import * as crypto from "https://deno.land/std@0.168.0/node/crypto.ts";
 
 // CORS Headers
 const corsHeaders = {
@@ -45,7 +45,7 @@ serve(async (req) => {
     console.log("Webhook body:", body);
     
     // Verify signature
-    const hmac = createHmac('sha256', checksumKey);
+    const hmac = crypto.createHmac('sha256', checksumKey);
     hmac.update(body);
     const calculatedSignature = hmac.digest('hex');
     
