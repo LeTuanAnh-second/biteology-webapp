@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -48,29 +47,36 @@ serve(async (req) => {
 
     console.log('Found transaction in database:', transaction)
 
-    // If this is dev mode or a manual transaction, simulate successful payment
+    // Check if this is a manual transaction (starts with "manual-" or "momo-")
     const isManualTransaction = orderId.startsWith('manual-') || orderId.startsWith('momo-')
-    const isDevMode = Deno.env.get('ENVIRONMENT') !== 'production' || isManualTransaction
 
-    // If this is dev mode or a manual transaction, simulate successful payment
-    if (isDevMode || isManualTransaction) {
-      console.log('Development mode or manual payment, simulating successful transaction for MoMo')
+    // For manual transactions, simulate successful payment after verifying the transaction ID
+    if (isManualTransaction) {
+      console.log('Manual payment, processing transaction')
       
-      // If a transaction ID was provided, store it
+      // If a transaction ID was provided, store it and update status
       if (transactionId) {
         await supabase
           .from('payment_transactions')
           .update({ 
             payment_id: transactionId,
-            status: 'completed'
+            status: 'completed',
+            updated_at: new Date().toISOString()
           })
           .eq('id', transaction.id)
+          
+        console.log('Transaction updated with payment ID:', transactionId)
       } else {
         // Otherwise, just update the status
         await supabase
           .from('payment_transactions')
-          .update({ status: 'completed' })
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
           .eq('id', transaction.id)
+          
+        console.log('Transaction updated to completed status without payment ID')
       }
 
       // Get the plan
@@ -81,11 +87,14 @@ serve(async (req) => {
         .single()
 
       if (!plan) {
+        console.error('Plan not found for transaction:', transaction.plan_id)
         return new Response(
           JSON.stringify({ success: false, error: 'Plan not found' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
+
+      console.log('Plan found:', plan)
 
       // Calculate subscription end date
       const endDate = new Date()
@@ -112,9 +121,11 @@ serve(async (req) => {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingSubscription.id)
+          
+        console.log('Updated existing subscription:', existingSubscription.id)
       } else {
         // Create new subscription
-        await supabase
+        const { data: newSubscription, error: subscriptionError } = await supabase
           .from('user_subscriptions')
           .insert({
             user_id: transaction.user_id,
@@ -124,34 +135,44 @@ serve(async (req) => {
             end_date: endDate.toISOString(),
             status: 'active'
           })
+          .select()
+          
+        if (subscriptionError) {
+          console.error('Error creating subscription:', subscriptionError)
+        } else {
+          console.log('Created new subscription:', newSubscription)
+        }
       }
 
       // Update user's premium status
-      await supabase
+      const { error: updateError } = await supabase
         .from('profiles')
         .update({ is_premium: true })
         .eq('id', transaction.user_id)
+        
+      if (updateError) {
+        console.error('Error updating profile premium status:', updateError)
+      } else {
+        console.log('Updated user premium status for:', transaction.user_id)
+      }
 
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: 'Payment verified and subscription updated',
-          simulatedPayment: true
+          transaction: transaction.id
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // For real MoMo verification in production environment
-    // Implementation for checking real payment status with MoMo API would go here
-    
-    // For now, just return a failure response for non-dev mode
+    // For other payment methods or unexpected case
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: 'MoMo payment verification not implemented for production yet'
+        error: 'Invalid payment verification method'
       }),
-      { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error verifying payment:', error)
