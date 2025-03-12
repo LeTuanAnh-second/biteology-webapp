@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
@@ -12,8 +11,8 @@ const corsHeaders = {
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
-const PAYOS_API_URL = "https://api-sandbox.payos.vn/v2";
-const USE_MOCK_RESPONSE = true; // Toggle this for testing
+const PAYOS_API_URL = "https://api.payos.vn/v2";
+const USE_MOCK_RESPONSE = false;
 
 serve(async (req) => {
   console.log("Function started: payos-verify-payment");
