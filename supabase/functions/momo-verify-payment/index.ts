@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -27,6 +28,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    console.log('Processing MoMo transaction verification for order:', orderId)
+    console.log('Transaction ID provided:', transactionId || 'None')
+
     // Get the transaction from the database
     const { data: transaction, error: transactionError } = await supabase
       .from('payment_transactions')
@@ -41,6 +45,8 @@ serve(async (req) => {
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    console.log('Found transaction in database:', transaction)
 
     // If this is dev mode or a manual transaction, simulate successful payment
     const isManualTransaction = orderId.startsWith('manual-') || orderId.startsWith('momo-')
