@@ -74,12 +74,13 @@ serve(async (req) => {
 
     if (!openAIApiKey) {
       console.error('OpenAI API key is missing')
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+      return new Response(JSON.stringify({ error: 'Server configuration error: OpenAI API key is missing' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
+    console.log('Sending request to OpenAI')
     // Call OpenAI
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -113,13 +114,23 @@ serve(async (req) => {
       }),
     })
 
+    console.log('OpenAI response status:', response.status)
+    
     if (!response.ok) {
-      const errorData = await response.json()
-      console.error('OpenAI API error:', errorData)
-      throw new Error('Failed to get response from AI service')
+      const errorText = await response.text()
+      console.error('OpenAI API error:', errorText)
+      try {
+        const errorData = JSON.parse(errorText)
+        console.error('Parsed OpenAI error:', errorData)
+      } catch (e) {
+        console.error('Could not parse OpenAI error response')
+      }
+      throw new Error(`Failed to get response from AI service: ${response.status} ${response.statusText}`)
     }
 
     const data = await response.json()
+    console.log('OpenAI response received successfully')
+    
     const answer = data.choices[0].message.content
 
     // Log chat for analysis
@@ -130,7 +141,6 @@ serve(async (req) => {
         user_message: message,
         ai_response: answer
       })
-      .select()
 
     return new Response(JSON.stringify({ answer }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
