@@ -30,6 +30,7 @@ export const DirectPaymentLink = ({
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDevMode, setIsDevMode] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -40,6 +41,7 @@ export const DirectPaymentLink = ({
     setError(null);
     setQrImageUrl(null);
     setPaymentUrl(null);
+    setIsDevMode(false);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -79,6 +81,10 @@ export const DirectPaymentLink = ({
       
       console.log("Received payment data:", { checkoutUrl, qrCode, newOrderId });
       
+      // Check if this is a simulated response (development mode)
+      const isSimulatedResponse = checkoutUrl?.includes('simulated_');
+      setIsDevMode(isSimulatedResponse);
+      
       // Ensure the QR code URL is actually set
       if (!qrCode) {
         throw new Error("Không nhận được mã QR từ PayOS");
@@ -87,6 +93,13 @@ export const DirectPaymentLink = ({
       setQrImageUrl(qrCode);
       setPaymentUrl(checkoutUrl);
       setOrderId(newOrderId);
+      
+      if (isSimulatedResponse) {
+        toast({
+          title: "Chế độ phát triển",
+          description: "Đây là chế độ thử nghiệm. Nhấn vào nút thanh toán để giả lập thanh toán thành công.",
+        });
+      }
       
     } catch (error) {
       console.error('Error creating payment:', error);
@@ -101,6 +114,19 @@ export const DirectPaymentLink = ({
     }
   };
 
+  // Simulate successful payment in development mode
+  const simulateSuccessfulPayment = () => {
+    if (!isDevMode || !orderId) return;
+    
+    toast({
+      title: "Thanh toán thành công!",
+      description: "Đây là thanh toán giả lập trong chế độ phát triển.",
+    });
+    
+    onPaymentSuccess?.();
+    onOpenChange(false);
+  };
+
   // Create payment request when dialog opens
   useEffect(() => {
     if (open && selectedPlan) {
@@ -111,12 +137,13 @@ export const DirectPaymentLink = ({
       setPaymentUrl(null);
       setOrderId(null);
       setError(null);
+      setIsDevMode(false);
     }
   }, [open, selectedPlan]);
 
-  // Check payment status periodically
+  // Check payment status periodically (only in production mode)
   useEffect(() => {
-    if (!orderId || !open) return;
+    if (!orderId || !open || isDevMode) return;
 
     const checkPaymentStatus = async () => {
       try {
@@ -151,7 +178,7 @@ export const DirectPaymentLink = ({
     // Check every 5 seconds
     const interval = setInterval(checkPaymentStatus, 5000);
     return () => clearInterval(interval);
-  }, [orderId, open, onPaymentSuccess, onOpenChange]);
+  }, [orderId, open, onPaymentSuccess, onOpenChange, isDevMode]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -159,7 +186,9 @@ export const DirectPaymentLink = ({
         <DialogHeader>
           <DialogTitle>Thanh toán qua PayOS</DialogTitle>
           <DialogDescription>
-            Quét mã QR bên dưới để thanh toán hoặc nhấn vào nút để mở trang thanh toán
+            {isDevMode 
+              ? "Đây là chế độ thử nghiệm. Nhấn vào nút mô phỏng thanh toán thành công." 
+              : "Quét mã QR bên dưới để thanh toán hoặc nhấn vào nút để mở trang thanh toán"}
           </DialogDescription>
         </DialogHeader>
         
@@ -187,7 +216,7 @@ export const DirectPaymentLink = ({
             </div>
           ) : (
             <>
-              {qrImageUrl && (
+              {qrImageUrl && !isDevMode && (
                 <div className="flex flex-col items-center mb-4">
                   <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
                   <img 
@@ -198,7 +227,27 @@ export const DirectPaymentLink = ({
                 </div>
               )}
               
-              {paymentUrl && (
+              {isDevMode && (
+                <div className="flex flex-col items-center mb-4">
+                  <Alert className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="mt-1">
+                      Đây là chế độ thử nghiệm. Thanh toán thực tế đã bị vô hiệu hóa.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Button 
+                    variant="default" 
+                    size="lg"
+                    className="w-full flex items-center justify-center gap-2 mt-4"
+                    onClick={simulateSuccessfulPayment}
+                  >
+                    Mô phỏng thanh toán thành công
+                  </Button>
+                </div>
+              )}
+              
+              {paymentUrl && !isDevMode && (
                 <Button 
                   variant="default" 
                   size="lg"
@@ -213,8 +262,9 @@ export const DirectPaymentLink = ({
           )}
 
           <p className="text-sm text-muted-foreground mt-6 text-center max-w-sm">
-            Hệ thống sẽ tự động cập nhật khi bạn thanh toán thành công.
-            Vui lòng không đóng cửa sổ này trong quá trình thanh toán.
+            {isDevMode 
+              ? "Đây là môi trường thử nghiệm. Không có kết nối thực tế tới các cổng thanh toán."
+              : "Hệ thống sẽ tự động cập nhật khi bạn thanh toán thành công. Vui lòng không đóng cửa sổ này trong quá trình thanh toán."}
           </p>
         </div>
       </DialogContent>

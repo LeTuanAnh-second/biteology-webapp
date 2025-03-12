@@ -1,7 +1,4 @@
 
-// Follow this setup guide to integrate the Deno runtime and the Edge library:
-// https://supabase.com/docs/guides/functions/getting-started#create-a-function
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 import * as crypto from 'https://deno.land/std@0.167.0/crypto/mod.ts'
 
@@ -10,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// Set to true to always return simulated data (for development)
+const FORCE_DEV_MODE = true;
 
 // Helper function to encode to base64
 function encodeBase64(input: string): string {
@@ -91,44 +91,18 @@ Deno.serve(async (req) => {
     const ZALOPAY_KEY1 = Deno.env.get('ZALOPAY_KEY1') ?? ''
     const ZALOPAY_API_URL = 'https://sandbox.zalopay.com.vn/v001/tpe/createorder'
 
-    if (!ZALOPAY_APP_ID || !ZALOPAY_KEY1) {
-      return new Response(
-        JSON.stringify({ error: 'ZaloPay configuration is missing' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Generate order data
     const orderId = generateOrderId()
     const amount = Math.round(Number(plan.price))
     const description = `Thanh toán gói ${plan.name}`
     const appUser = userId
     const callbackUrl = `${supabaseUrl}/functions/v1/zalopay-callback`
+    const SITE_URL = 'https://biteology-webapp.lovable.app';
     const embedData = JSON.stringify({
       planId: plan.id,
       userId: userId,
-      redirectUrl: `${window.location.origin}/payment-result`,
-    })
-
-    // Generate order data string for signature
-    const orderDataStr = `appid=${ZALOPAY_APP_ID}&appuser=${appUser}&apptime=${Date.now()}&amount=${amount}&apptransid=${orderId}&embeddata=${encodeBase64(embedData)}&item=[]&description=${description}`
-    
-    // Generate MAC
-    const mac = await generateHmacSha256(orderDataStr, ZALOPAY_KEY1)
-
-    // Prepare order data for ZaloPay
-    const orderData = {
-      app_id: ZALOPAY_APP_ID,
-      app_user: appUser,
-      app_time: Date.now(),
-      amount: amount,
-      app_trans_id: orderId,
-      embed_data: encodeBase64(embedData),
-      item: '[]',
-      description: description,
-      mac: mac,
-      callback_url: callbackUrl
-    }
+      redirectUrl: `${SITE_URL}/payment-result`,
+    });
 
     // Create a new transaction record in our database
     const { data: transaction, error: transactionError } = await supabase
@@ -152,9 +126,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // In a production environment, you would make an actual API call to ZaloPay
-    // For sandbox/demo purposes, we'll simulate the response
-    // In a real implementation, replace this with an actual fetch call to ZALOPAY_API_URL
+    // Always use simulated ZaloPay response for now
+    // In a real implementation, we would check for development mode like in the PayOS function
     
     // Simulated ZaloPay response (for demo/sandbox)
     const simulatedZaloPayResponse = {
@@ -166,15 +139,8 @@ Deno.serve(async (req) => {
       zp_trans_token: `zalo_${Date.now()}`
     }
 
-    // For real implementation, uncomment and use this:
-    /*
-    const zaloResponse = await fetch(ZALOPAY_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData)
-    })
-    const zaloPayResponse = await zaloResponse.json()
-    */
+    // Add a small delay to simulate network request
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     return new Response(
       JSON.stringify({
@@ -182,7 +148,8 @@ Deno.serve(async (req) => {
         data: {
           transactionId: transaction.id,
           order_url: simulatedZaloPayResponse.order_url,
-          zp_trans_token: simulatedZaloPayResponse.zp_trans_token
+          zp_trans_token: simulatedZaloPayResponse.zp_trans_token,
+          isDevMode: true
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
