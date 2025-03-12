@@ -49,10 +49,15 @@ const ProfileMenu = () => {
         .single();
       
       if (!subscriptionError && subscriptionData) {
-        const planName = subscriptionData.premium_plans ? 
-          // Handle premium_plans as an object with name property, not an array
-          subscriptionData.premium_plans.name : 
-          null;
+        // Extract plan name from premium_plans, handling different possible structures
+        let planName = null;
+        
+        if (subscriptionData.premium_plans) {
+          // Check if premium_plans is an object with a name property directly
+          if (typeof subscriptionData.premium_plans === 'object' && 'name' in subscriptionData.premium_plans) {
+            planName = subscriptionData.premium_plans.name;
+          }
+        }
           
         setProfile({
           ...data,
