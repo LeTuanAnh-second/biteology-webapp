@@ -12,7 +12,7 @@ const Header = () => {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center space-x-2">
           <img 
-            src="/lovable-uploads/bc1821b1-cd8c-4ef3-8b73-76835c2f2a2a.png" 
+            src="/lovable-uploads/30afc11d-2515-46e5-ae20-770260d269fe.png" 
             alt="Biteology Logo" 
             className="h-8 w-auto"
           />

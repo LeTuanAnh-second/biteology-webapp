@@ -9,7 +9,7 @@ const Footer = () => {
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <img 
-                src="/lovable-uploads/bc1821b1-cd8c-4ef3-8b73-76835c2f2a2a.png" 
+                src="/lovable-uploads/30afc11d-2515-46e5-ae20-770260d269fe.png" 
                 alt="Biteology Logo" 
                 className="h-8 w-auto" 
               />
