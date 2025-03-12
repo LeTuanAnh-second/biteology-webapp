@@ -1,20 +1,19 @@
 
-// PayOS webhook handler for payment notifications
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { createHmac } from "https://deno.land/std@0.198.0/node/crypto.ts";
 
 // CORS Headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-payos-signature',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
   console.log("PayOS webhook received:", req.method);
   
-  // Always respond with 200 OK for OPTIONS requests
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -26,181 +25,148 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const supabase = createClient(supabaseUrl, supabaseKey);
+  const checksumKey = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
   
   try {
-    let paymentData: any;
+    // Get the PayOS signature from headers
+    const payosSignature = req.headers.get('x-payos-signature');
+    console.log("PayOS Signature:", payosSignature);
     
-    // Handle both GET and POST methods
-    if (req.method === 'GET') {
-      // For GET requests, look for data in URL query parameters
-      const url = new URL(req.url);
-      const orderCode = url.searchParams.get('orderCode');
-      if (orderCode) {
-        paymentData = { orderCode };
-      } else {
-        console.log("No orderCode found in GET parameters");
-      }
-    } else {
-      // For POST requests, try to parse the request body
-      try {
-        const contentType = req.headers.get('content-type') || '';
-        
-        if (contentType.includes('application/json')) {
-          paymentData = await req.json();
-        } else if (contentType.includes('application/x-www-form-urlencoded')) {
-          const formData = await req.formData();
-          paymentData = {};
-          for (const [key, value] of formData.entries()) {
-            paymentData[key] = value;
-          }
-        } else {
-          // Try to parse as JSON anyway
-          const text = await req.text();
-          try {
-            paymentData = JSON.parse(text);
-          } catch {
-            console.log("Unable to parse request body as JSON:", text);
-            // Store raw text for debugging
-            paymentData = { rawData: text };
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing request body:", error);
-      }
+    if (!payosSignature) {
+      console.error("Missing PayOS signature");
+      return new Response(
+        JSON.stringify({ success: false, error: "Missing signature" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Get request body
+    const body = await req.text();
+    console.log("Webhook body:", body);
+    
+    // Verify signature
+    const hmac = createHmac('sha256', checksumKey);
+    hmac.update(body);
+    const calculatedSignature = hmac.digest('hex');
+    
+    console.log("Calculated signature:", calculatedSignature);
+    
+    if (calculatedSignature !== payosSignature) {
+      console.error("Invalid signature");
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid signature" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
     }
     
-    console.log("Payment webhook data:", paymentData);
-    
-    // Extract order code/ID from the PayOS webhook data
-    let orderId: string | null = null;
-    
-    if (paymentData) {
-      // Try different possible field names
-      orderId = paymentData.orderCode || 
-                paymentData.order_code || 
-                (paymentData.data && paymentData.data.orderCode) ||
-                (paymentData.data && paymentData.data.order_code) ||
-                null;
-    }
-    
-    console.log("Extracted order ID:", orderId);
-    
-    if (orderId) {
-      // Store the webhook receipt for debugging
-      await supabase.from('webhook_logs').insert({
-        source: 'payos',
-        event_type: 'payment_notification',
-        data: paymentData,
-        processed: false,
-        order_id: orderId
-      });
-      
+    // Parse webhook data
+    const webhookData = JSON.parse(body);
+    console.log("Parsed webhook data:", webhookData);
+
+    const { orderCode, status, amount, description } = webhookData;
+
+    if (status === "PAID") {
       // Find transaction by order ID
       const { data: transaction, error: transactionError } = await supabase
         .from('payment_transactions')
         .select('*')
-        .eq('order_id', orderId)
+        .eq('order_id', orderCode)
         .maybeSingle();
       
       if (transactionError) {
         console.error("Error fetching transaction:", transactionError);
-      } else if (transaction) {
-        console.log("Found transaction:", transaction);
-        
-        // Update transaction status
-        await supabase
-          .from('payment_transactions')
-          .update({ 
-            status: 'completed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', transaction.id);
-        
-        // Create or update user subscription
-        const endDate = new Date();
-        
-        // Get plan details for duration
-        const { data: plan } = await supabase
-          .from('premium_plans')
-          .select('*')
-          .eq('id', transaction.plan_id)
-          .maybeSingle();
-        
-        if (plan) {
-          endDate.setDate(endDate.getDate() + (plan.duration_days || 30));
-          
-          // Try to get existing subscription
-          const { data: existingSub } = await supabase
-            .from('user_subscriptions')
-            .select('*')
-            .eq('user_id', transaction.user_id)
-            .maybeSingle();
-          
-          if (existingSub) {
-            // Update existing subscription
-            await supabase
-              .from('user_subscriptions')
-              .update({
-                plan_id: transaction.plan_id,
-                start_date: new Date().toISOString(),
-                end_date: endDate.toISOString(),
-                status: 'active',
-                transaction_id: transaction.id
-              })
-              .eq('id', existingSub.id);
-          } else {
-            // Create new subscription
-            await supabase
-              .from('user_subscriptions')
-              .insert({
-                user_id: transaction.user_id,
-                plan_id: transaction.plan_id,
-                start_date: new Date().toISOString(),
-                end_date: endDate.toISOString(),
-                status: 'active',
-                transaction_id: transaction.id
-              });
-          }
-          
-          // Update user premium status
-          await supabase
-            .from('profiles')
-            .update({ is_premium: true })
-            .eq('id', transaction.user_id);
-            
-          // Update webhook log as processed
-          await supabase
-            .from('webhook_logs')
-            .update({ processed: true })
-            .eq('order_id', orderId);
-            
-          console.log("Payment processing completed successfully");
-        } else {
-          console.error("Plan not found:", transaction.plan_id);
-        }
-      } else {
-        console.log("No transaction found for order ID:", orderId);
+        return new Response(
+          JSON.stringify({ success: false, error: "Database error" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
+
+      if (!transaction) {
+        console.error("Transaction not found:", orderCode);
+        return new Response(
+          JSON.stringify({ success: false, error: "Transaction not found" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+
+      console.log("Found transaction:", transaction);
+
+      // Update transaction status
+      const { error: updateError } = await supabase
+        .from('payment_transactions')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', transaction.id);
+
+      if (updateError) {
+        console.error("Error updating transaction:", updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: "Failed to update transaction" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      // Get plan details
+      const { data: plan } = await supabase
+        .from('premium_plans')
+        .select('duration_days')
+        .eq('id', transaction.plan_id)
+        .single();
+
+      // Calculate subscription end date
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
+
+      // Create or update subscription
+      const { data: existingSub } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', transaction.user_id)
+        .maybeSingle();
+
+      if (existingSub) {
+        await supabase
+          .from('user_subscriptions')
+          .update({
+            plan_id: transaction.plan_id,
+            start_date: new Date().toISOString(),
+            end_date: endDate.toISOString(),
+            status: 'active',
+            transaction_id: transaction.id
+          })
+          .eq('id', existingSub.id);
+      } else {
+        await supabase
+          .from('user_subscriptions')
+          .insert({
+            user_id: transaction.user_id,
+            plan_id: transaction.plan_id,
+            start_date: new Date().toISOString(),
+            end_date: endDate.toISOString(),
+            status: 'active',
+            transaction_id: transaction.id
+          });
+      }
+
+      // Update user premium status
+      await supabase
+        .from('profiles')
+        .update({ is_premium: true })
+        .eq('id', transaction.user_id);
     }
-    
-    // Always return success to the PayOS webhook caller
+
     return new Response(
       JSON.stringify({ success: true }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
+    
   } catch (error) {
     console.error("Error processing webhook:", error);
-    
-    // Still return 200 to prevent PayOS from retrying
     return new Response(
       JSON.stringify({ success: false, error: String(error) }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 // Return 200 even on error to avoid retries
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
