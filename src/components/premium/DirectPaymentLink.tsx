@@ -55,7 +55,8 @@ export const DirectPaymentLink = ({
       
       console.log("Creating payment for plan:", selectedPlan.id);
       
-      // Call our PayOS create order endpoint
+      // Gọi PayOS create order endpoint
+      console.log("Calling PayOS create order endpoint");
       const response = await supabase.functions.invoke('payos-create-order', {
         body: {
           planId: selectedPlan.id,
@@ -65,14 +66,18 @@ export const DirectPaymentLink = ({
       console.log("PayOS create order response:", response);
 
       if (response.error) {
+        console.error("Error from PayOS function:", response.error);
         throw new Error(response.error.message || "Không thể tạo thanh toán");
       }
 
       if (!response.data?.success) {
+        console.error("Failed response from PayOS:", response.data);
         throw new Error(response.data?.error || "Không thể tạo thanh toán");
       }
 
       const { checkoutUrl, qrCode, orderId: newOrderId } = response.data;
+      
+      console.log("Received payment data:", { checkoutUrl, qrCode, newOrderId });
       
       // Ensure the QR code URL is actually set
       if (!qrCode) {
@@ -118,6 +123,7 @@ export const DirectPaymentLink = ({
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
 
+        console.log("Checking payment status for order:", orderId);
         const response = await supabase.functions.invoke('payos-verify-payment', {
           body: { orderId }
         });
