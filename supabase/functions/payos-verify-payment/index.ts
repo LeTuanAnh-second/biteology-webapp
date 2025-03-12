@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -42,8 +43,8 @@ serve(async (req) => {
       )
     }
 
-    // If we're in development mode or this is a manual transaction (starts with "manual-")
-    const isManualTransaction = orderId.startsWith('manual-')
+    // Check if this is a manual transaction (starts with "manual-") or MoMo transaction (starts with "momo-")
+    const isManualTransaction = orderId.startsWith('manual-') || orderId.startsWith('momo-')
     const isDevMode = Deno.env.get('ENVIRONMENT') !== 'production' || isManualTransaction
 
     // If this is dev mode or a manual transaction, simulate successful payment

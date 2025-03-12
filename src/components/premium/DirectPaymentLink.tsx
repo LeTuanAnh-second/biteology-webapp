@@ -33,7 +33,7 @@ export const DirectPaymentLink = ({
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'payos' | 'zalopay' | 'manual'>('manual');
+  const [paymentMethod, setPaymentMethod] = useState<'payos' | 'zalopay' | 'momo' | 'manual'>('manual');
   const [transactionId, setTransactionId] = useState('');
   const [verifyingTransaction, setVerifyingTransaction] = useState(false);
   const { user } = useAuth();
@@ -73,12 +73,78 @@ export const DirectPaymentLink = ({
       
       console.log("Creating payment for plan:", selectedPlan.id);
       
-      // Gọi PayOS create order endpoint
-      console.log(`Calling ${paymentMethod} create order endpoint`);
+      // Xác định loại thanh toán và endpoint tương ứng
+      let functionName = '';
+      if (paymentMethod === 'payos') {
+        functionName = 'payos-create-order';
+      } else if (paymentMethod === 'zalopay') {
+        functionName = 'zalopay-create-order';
+      } else if (paymentMethod === 'momo') {
+        functionName = 'momo-create-order';
+        // Nếu là MoMo và gói Cơ bản, cũng sử dụng QR cố định
+        if (selectedPlan.name === "Cơ bản") {
+          setQrImageUrl(fixedQrImage);
+          setOrderId(`momo-${Date.now()}`);
+          
+          // Tạo giao dịch trong cơ sở dữ liệu
+          const { data, error } = await supabase
+            .from('payment_transactions')
+            .insert({
+              user_id: user.id,
+              plan_id: selectedPlan.id,
+              amount: selectedPlan.price,
+              status: 'pending',
+              payment_method: 'momo',
+              order_id: `momo-${Date.now()}`
+            })
+            .select()
+            .single();
+            
+          if (error) {
+            console.error("Error creating transaction:", error);
+            throw new Error("Không thể tạo giao dịch");
+          }
+          
+          setOrderId(data.order_id);
+          setIsLoading(false);
+          return;
+        }
+      }
       
-      const functionName = paymentMethod === 'payos' 
-        ? 'payos-create-order' 
-        : 'zalopay-create-order';
+      if (!functionName && paymentMethod !== 'manual') {
+        throw new Error("Phương thức thanh toán không hợp lệ");
+      }
+      
+      if (paymentMethod === 'manual') {
+        // Generate a random order ID for tracking
+        const manualOrderId = `manual-${Date.now()}`;
+        
+        // Create a transaction record in database
+        const { data, error } = await supabase
+          .from('payment_transactions')
+          .insert({
+            user_id: user.id,
+            plan_id: selectedPlan.id,
+            amount: selectedPlan.price,
+            status: 'pending',
+            payment_method: 'manual',
+            order_id: manualOrderId
+          })
+          .select()
+          .single();
+          
+        if (error) {
+          console.error("Error creating transaction:", error);
+          throw new Error("Không thể tạo giao dịch");
+        }
+        
+        setOrderId(manualOrderId);
+        setQrImageUrl(fixedQrImage);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log(`Calling ${paymentMethod} create order endpoint: ${functionName}`);
       
       const response = await supabase.functions.invoke(functionName, {
         body: {
@@ -109,7 +175,7 @@ export const DirectPaymentLink = ({
         setIsDevMode(isDev);
         
         // Ensure the QR code URL is actually set
-        if (!qrCode) {
+        if (!qrCode && !isDev) {
           throw new Error("Không nhận được mã QR từ PayOS");
         }
         
@@ -118,7 +184,7 @@ export const DirectPaymentLink = ({
         setOrderId(newOrderId);
       } 
       // Phản hồi từ ZaloPay
-      else {
+      else if (paymentMethod === 'zalopay') {
         const { data } = response.data;
         
         console.log("Received ZaloPay payment data:", data);
@@ -127,6 +193,25 @@ export const DirectPaymentLink = ({
         setPaymentUrl(data.order_url);
         setOrderId(data.transactionId);
         // ZaloPay không trả về URL mã QR riêng biệt
+      }
+      // Phản hồi từ MoMo
+      else if (paymentMethod === 'momo') {
+        const { data } = response.data;
+        
+        console.log("Received MoMo payment data:", data);
+        
+        setIsDevMode(data.isDevMode || false);
+        setOrderId(data.orderId);
+        
+        // MoMo có thể trả về URL của mã QR
+        if (data.qrCodeUrl) {
+          setQrImageUrl(data.qrCodeUrl);
+        }
+        
+        // Dùng QR cố định cho MoMo nếu không có QR từ MoMo
+        if (!data.qrCodeUrl && selectedPlan.name === "Cơ bản") {
+          setQrImageUrl(fixedQrImage);
+        }
       }
       
       if (isDevMode) {
@@ -163,78 +248,39 @@ export const DirectPaymentLink = ({
     setVerifyingTransaction(true);
     
     try {
-      // Store transaction in database with transaction ID
-      const { data: transaction, error: transactionError } = await supabase
-        .from('payment_transactions')
-        .update({ 
-          payment_id: transactionId,
-          status: 'completed' 
-        })
-        .eq('order_id', orderId)
-        .select()
-        .single();
-        
-      if (transactionError) {
-        throw new Error("Không thể cập nhật thông tin giao dịch");
+      // Xác định hàm xác minh dựa trên phương thức thanh toán
+      const verifyFunction = orderId.startsWith('momo-') 
+        ? 'momo-verify-payment' 
+        : 'payos-verify-payment';
+      
+      console.log(`Using ${verifyFunction} to verify transaction`);
+      
+      // Gọi API xác minh thanh toán
+      const response = await supabase.functions.invoke(verifyFunction, {
+        body: { 
+          orderId: orderId,
+          transactionId: transactionId
+        }
+      });
+      
+      console.log("Verification response:", response);
+      
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Không thể xác minh giao dịch");
       }
-
-      // Calculate subscription end date
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + (selectedPlan.name === "Cơ bản" ? 30 : 90)); // Default 30 days for basic plan
-
-      // Check if user already has a subscription
-      const { data: existingSubscription } = await supabase
-        .from('user_subscriptions')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'active')
-        .single();
-
-      if (existingSubscription) {
-        // Update existing subscription
-        await supabase
-          .from('user_subscriptions')
-          .update({
-            plan_id: selectedPlan.id,
-            transaction_id: transaction.id,
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'active',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSubscription.id);
-      } else {
-        // Create new subscription
-        await supabase
-          .from('user_subscriptions')
-          .insert({
-            user_id: user?.id,
-            plan_id: selectedPlan.id,
-            transaction_id: transaction.id,
-            start_date: new Date().toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'active'
-          });
-      }
-
-      // Update user's premium status
-      await supabase
-        .from('profiles')
-        .update({ is_premium: true })
-        .eq('id', user?.id);
-        
-      // Show success message
+      
+      // Hiển thị thông báo thành công
       toast({
         title: "Thanh toán thành công!",
         description: "Tài khoản của bạn đã được nâng cấp lên Premium.",
       });
       
-      // Call success callback
+      // Gọi callback để cập nhật giao diện
       onPaymentSuccess?.();
       onOpenChange(false);
       
     } catch (error) {
-      console.error('Error verifying manual transaction:', error);
+      console.error('Error verifying transaction:', error);
       toast({
         variant: "destructive",
         title: "Lỗi xác minh giao dịch",
@@ -252,8 +298,13 @@ export const DirectPaymentLink = ({
     setIsLoading(true);
     
     try {
+      // Xác định hàm xác minh dựa trên phương thức thanh toán
+      const verifyFunction = paymentMethod === 'momo' 
+        ? 'momo-verify-payment' 
+        : 'payos-verify-payment';
+      
       // Gọi API xác minh thanh toán để cập nhật trạng thái
-      const response = await supabase.functions.invoke('payos-verify-payment', {
+      const response = await supabase.functions.invoke(verifyFunction, {
         body: { orderId }
       });
       
@@ -285,6 +336,8 @@ export const DirectPaymentLink = ({
     if (paymentMethod === 'payos') {
       setPaymentMethod('zalopay');
     } else if (paymentMethod === 'zalopay') {
+      setPaymentMethod('momo');
+    } else if (paymentMethod === 'momo') {
       setPaymentMethod('manual');
     } else {
       setPaymentMethod('payos');
@@ -310,7 +363,7 @@ export const DirectPaymentLink = ({
 
   // Check payment status periodically (only in production mode)
   useEffect(() => {
-    if (!orderId || !open || isDevMode || paymentMethod === 'manual') return;
+    if (!orderId || !open || isDevMode || paymentMethod === 'manual' || orderId.startsWith('momo-') || orderId.startsWith('manual-')) return;
 
     const checkPaymentStatus = async () => {
       try {
@@ -318,7 +371,11 @@ export const DirectPaymentLink = ({
         if (!session) return;
 
         console.log("Checking payment status for order:", orderId);
-        const response = await supabase.functions.invoke('payos-verify-payment', {
+        const verifyFunction = paymentMethod === 'momo' 
+          ? 'momo-verify-payment' 
+          : 'payos-verify-payment';
+          
+        const response = await supabase.functions.invoke(verifyFunction, {
           body: { orderId }
         });
 
@@ -347,6 +404,7 @@ export const DirectPaymentLink = ({
     switch (paymentMethod) {
       case 'payos': return 'PayOS';
       case 'zalopay': return 'ZaloPay';
+      case 'momo': return 'MoMo';
       case 'manual': return 'Chuyển khoản ngân hàng';
       default: return 'Thanh toán';
     }
@@ -358,7 +416,7 @@ export const DirectPaymentLink = ({
         <DialogHeader>
           <DialogTitle>Thanh toán qua {getPaymentMethodTitle()}</DialogTitle>
           <DialogDescription>
-            {paymentMethod === 'manual' 
+            {(paymentMethod === 'manual' || (paymentMethod === 'momo' && selectedPlan?.name === "Cơ bản"))
               ? "Quét mã QR bên dưới để thanh toán, sau đó nhập mã giao dịch để xác nhận" 
               : isDevMode 
                 ? "Đây là chế độ thử nghiệm. Nhấn vào nút mô phỏng thanh toán thành công." 
@@ -387,7 +445,15 @@ export const DirectPaymentLink = ({
                   onClick={togglePaymentMethod}
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Thử với {paymentMethod === 'payos' ? 'ZaloPay' : paymentMethod === 'zalopay' ? 'Chuyển khoản' : 'PayOS'}
+                  Thử với {
+                    paymentMethod === 'payos' 
+                      ? 'ZaloPay' 
+                      : paymentMethod === 'zalopay' 
+                        ? 'MoMo' 
+                        : paymentMethod === 'momo' 
+                          ? 'Chuyển khoản' 
+                          : 'PayOS'
+                  }
                 </Button>
                 
                 <Button 
@@ -404,7 +470,7 @@ export const DirectPaymentLink = ({
           ) : (
             <>
               {/* Manual payment with fixed QR code */}
-              {paymentMethod === 'manual' && selectedPlan?.name === "Cơ bản" && (
+              {((paymentMethod === 'manual' || (paymentMethod === 'momo' && selectedPlan?.name === "Cơ bản")) && selectedPlan?.name === "Cơ bản") && (
                 <div className="flex flex-col items-center gap-4 w-full">
                   <div className="flex flex-col items-center mb-2">
                     <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
@@ -428,11 +494,11 @@ export const DirectPaymentLink = ({
                         id="transactionId"
                         value={transactionId}
                         onChange={(e) => setTransactionId(e.target.value)}
-                        placeholder="Nhập mã giao dịch từ ngân hàng"
+                        placeholder="Nhập mã giao dịch từ ngân hàng hoặc MoMo"
                         className="w-full"
                       />
                       <p className="text-xs text-muted-foreground">
-                        Nhập mã giao dịch từ tin nhắn ngân hàng sau khi đã thanh toán
+                        Nhập mã giao dịch từ tin nhắn ngân hàng hoặc MoMo sau khi đã thanh toán
                       </p>
                     </div>
                     
@@ -455,7 +521,7 @@ export const DirectPaymentLink = ({
               )}
               
               {/* Auto payment methods */}
-              {paymentMethod !== 'manual' && qrImageUrl && !isDevMode && (
+              {paymentMethod !== 'manual' && paymentMethod !== 'momo' && qrImageUrl && !isDevMode && (
                 <div className="flex flex-col items-center mb-4">
                   <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
                   <img 
@@ -498,7 +564,13 @@ export const DirectPaymentLink = ({
                   onClick={() => window.open(paymentUrl, '_blank')}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Mở trang thanh toán {paymentMethod === 'payos' ? 'PayOS' : 'ZaloPay'}
+                  Mở trang thanh toán {
+                    paymentMethod === 'payos' 
+                      ? 'PayOS' 
+                      : paymentMethod === 'zalopay' 
+                        ? 'ZaloPay' 
+                        : 'MoMo'
+                  }
                 </Button>
               )}
               
@@ -508,14 +580,22 @@ export const DirectPaymentLink = ({
                 className="mt-4"
                 onClick={togglePaymentMethod}
               >
-                Thử với {paymentMethod === 'payos' ? 'ZaloPay' : paymentMethod === 'zalopay' ? 'Chuyển khoản' : 'PayOS'}
+                Thử với {
+                  paymentMethod === 'payos' 
+                    ? 'ZaloPay' 
+                    : paymentMethod === 'zalopay' 
+                      ? 'MoMo' 
+                      : paymentMethod === 'momo' 
+                        ? 'Chuyển khoản' 
+                        : 'PayOS'
+                }
               </Button>
             </>
           )}
 
           <p className="text-sm text-muted-foreground mt-6 text-center max-w-sm">
-            {paymentMethod === 'manual' 
-              ? "Sau khi thanh toán, vui lòng nhập mã giao dịch từ tin nhắn ngân hàng vào ô mã giao dịch và nhấn Xác nhận thanh toán."
+            {(paymentMethod === 'manual' || (paymentMethod === 'momo' && selectedPlan?.name === "Cơ bản"))
+              ? "Sau khi thanh toán, vui lòng nhập mã giao dịch từ tin nhắn ngân hàng hoặc MoMo vào ô mã giao dịch và nhấn Xác nhận thanh toán."
               : isDevMode 
                 ? "Đây là môi trường thử nghiệm. Không có kết nối thực tế tới các cổng thanh toán."
                 : "Hệ thống sẽ tự động cập nhật khi bạn thanh toán thành công. Vui lòng không đóng cửa sổ này trong quá trình thanh toán."}
