@@ -31,6 +31,7 @@ export const DirectPaymentLink = ({
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDevMode, setIsDevMode] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'payos' | 'zalopay'>('payos');
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -58,43 +59,62 @@ export const DirectPaymentLink = ({
       console.log("Creating payment for plan:", selectedPlan.id);
       
       // Gọi PayOS create order endpoint
-      console.log("Calling PayOS create order endpoint");
-      const response = await supabase.functions.invoke('payos-create-order', {
+      console.log(`Calling ${paymentMethod} create order endpoint`);
+      
+      const functionName = paymentMethod === 'payos' 
+        ? 'payos-create-order' 
+        : 'zalopay-create-order';
+      
+      const response = await supabase.functions.invoke(functionName, {
         body: {
           planId: selectedPlan.id,
+          userId: user.id
         }
       });
 
-      console.log("PayOS create order response:", response);
+      console.log(`${paymentMethod} create order response:`, response);
 
       if (response.error) {
-        console.error("Error from PayOS function:", response.error);
+        console.error(`Error from ${paymentMethod} function:`, response.error);
         throw new Error(response.error.message || "Không thể tạo thanh toán");
       }
 
       if (!response.data?.success) {
-        console.error("Failed response from PayOS:", response.data);
+        console.error(`Failed response from ${paymentMethod}:`, response.data);
         throw new Error(response.data?.error || "Không thể tạo thanh toán");
       }
 
-      const { checkoutUrl, qrCode, orderId: newOrderId } = response.data;
-      
-      console.log("Received payment data:", { checkoutUrl, qrCode, newOrderId });
-      
-      // Check if this is a simulated response (development mode)
-      const isSimulatedResponse = checkoutUrl?.includes('simulated_');
-      setIsDevMode(isSimulatedResponse);
-      
-      // Ensure the QR code URL is actually set
-      if (!qrCode) {
-        throw new Error("Không nhận được mã QR từ PayOS");
+      // Phản hồi từ PayOS
+      if (paymentMethod === 'payos') {
+        const { checkoutUrl, qrCode, orderId: newOrderId, isDevMode: isDev } = response.data;
+        
+        console.log("Received payment data:", { checkoutUrl, qrCode, newOrderId, isDevMode: isDev });
+        
+        // Check if this is a simulated response (development mode)
+        setIsDevMode(isDev);
+        
+        // Ensure the QR code URL is actually set
+        if (!qrCode) {
+          throw new Error("Không nhận được mã QR từ PayOS");
+        }
+        
+        setQrImageUrl(qrCode);
+        setPaymentUrl(checkoutUrl);
+        setOrderId(newOrderId);
+      } 
+      // Phản hồi từ ZaloPay
+      else {
+        const { data } = response.data;
+        
+        console.log("Received ZaloPay payment data:", data);
+        
+        setIsDevMode(data.isDevMode);
+        setPaymentUrl(data.order_url);
+        setOrderId(data.transactionId);
+        // ZaloPay không trả về URL mã QR riêng biệt
       }
       
-      setQrImageUrl(qrCode);
-      setPaymentUrl(checkoutUrl);
-      setOrderId(newOrderId);
-      
-      if (isSimulatedResponse) {
+      if (isDevMode) {
         toast({
           title: "Chế độ phát triển",
           description: "Đây là chế độ thử nghiệm. Nhấn vào nút thanh toán để giả lập thanh toán thành công.",
@@ -115,16 +135,43 @@ export const DirectPaymentLink = ({
   };
 
   // Simulate successful payment in development mode
-  const simulateSuccessfulPayment = () => {
+  const simulateSuccessfulPayment = async () => {
     if (!isDevMode || !orderId) return;
     
-    toast({
-      title: "Thanh toán thành công!",
-      description: "Đây là thanh toán giả lập trong chế độ phát triển.",
-    });
+    setIsLoading(true);
     
-    onPaymentSuccess?.();
-    onOpenChange(false);
+    try {
+      // Gọi API xác minh thanh toán để cập nhật trạng thái
+      const response = await supabase.functions.invoke('payos-verify-payment', {
+        body: { orderId }
+      });
+      
+      console.log("Payment verification response:", response);
+      
+      // Hiển thị thông báo thành công
+      toast({
+        title: "Thanh toán thành công!",
+        description: "Đây là thanh toán giả lập trong chế độ phát triển.",
+      });
+      
+      // Gọi callback để cập nhật giao diện
+      onPaymentSuccess?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error simulating payment:", error);
+      toast({
+        variant: "destructive", 
+        title: "Lỗi",
+        description: "Không thể giả lập thanh toán thành công."
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Chuyển đổi phương thức thanh toán
+  const togglePaymentMethod = () => {
+    setPaymentMethod(prev => prev === 'payos' ? 'zalopay' : 'payos');
   };
 
   // Create payment request when dialog opens
@@ -139,7 +186,7 @@ export const DirectPaymentLink = ({
       setError(null);
       setIsDevMode(false);
     }
-  }, [open, selectedPlan]);
+  }, [open, selectedPlan, paymentMethod]);
 
   // Check payment status periodically (only in production mode)
   useEffect(() => {
@@ -156,11 +203,6 @@ export const DirectPaymentLink = ({
         });
 
         console.log("Payment verification response:", response);
-
-        if (response.error) {
-          console.error('Error checking payment:', response.error);
-          return;
-        }
 
         if (response.data?.success) {
           toast({
@@ -184,7 +226,7 @@ export const DirectPaymentLink = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Thanh toán qua PayOS</DialogTitle>
+          <DialogTitle>Thanh toán qua {paymentMethod === 'payos' ? 'PayOS' : 'ZaloPay'}</DialogTitle>
           <DialogDescription>
             {isDevMode 
               ? "Đây là chế độ thử nghiệm. Nhấn vào nút mô phỏng thanh toán thành công." 
@@ -204,15 +246,28 @@ export const DirectPaymentLink = ({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="mt-1">{error}</AlertDescription>
               </Alert>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="w-full flex items-center justify-center gap-2"
-                onClick={() => createPaymentRequest()}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Thử lại
-              </Button>
+              
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2"
+                  onClick={togglePaymentMethod}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Thử với {paymentMethod === 'payos' ? 'ZaloPay' : 'PayOS'}
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2"
+                  onClick={() => createPaymentRequest()}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Thử lại
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -228,7 +283,7 @@ export const DirectPaymentLink = ({
               )}
               
               {isDevMode && (
-                <div className="flex flex-col items-center mb-4">
+                <div className="flex flex-col items-center mb-4 w-full">
                   <Alert className="mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="mt-1">
@@ -241,7 +296,11 @@ export const DirectPaymentLink = ({
                     size="lg"
                     className="w-full flex items-center justify-center gap-2 mt-4"
                     onClick={simulateSuccessfulPayment}
+                    disabled={isLoading}
                   >
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : null}
                     Mô phỏng thanh toán thành công
                   </Button>
                 </div>
@@ -255,7 +314,18 @@ export const DirectPaymentLink = ({
                   onClick={() => window.open(paymentUrl, '_blank')}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Mở trang thanh toán PayOS
+                  Mở trang thanh toán {paymentMethod === 'payos' ? 'PayOS' : 'ZaloPay'}
+                </Button>
+              )}
+              
+              {!isDevMode && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-4"
+                  onClick={togglePaymentMethod}
+                >
+                  Thử với {paymentMethod === 'payos' ? 'ZaloPay' : 'PayOS'}
                 </Button>
               )}
             </>

@@ -9,34 +9,69 @@ const corsHeaders = {
 }
 
 // Set to true to always return simulated data (for development)
+// TỪ KHI BẠN CHUYỂN SANG MÔI TRƯỜNG SẢN XUẤT, HÃY ĐẶT GIÁ TRỊ NÀY THÀNH FALSE
 const FORCE_DEV_MODE = true;
+
+// Hàm tiện ích để tạo phản hồi cho lỗi
+const createErrorResponse = (error: unknown, status = 400) => {
+  console.error('Error in payos-create-order:', error);
+  const errorMessage = error instanceof Error 
+    ? error.message 
+    : 'Internal server error';
+  
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error: errorMessage,
+      details: error instanceof Error ? error.stack : null
+    }),
+    { 
+      status: status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    }
+  );
+};
+
+// Hàm tiện ích để mô phỏng trễ mạng
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    )
+    );
 
     // Get the request body
-    const { planId } = await req.json()
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (error) {
+      return createErrorResponse(new Error('Invalid JSON in request body'), 400);
+    }
+    
+    const { planId } = requestBody;
+    
+    if (!planId) {
+      return createErrorResponse(new Error('Missing required field: planId'), 400);
+    }
     
     // Get the JWT token from the request header
-    const authHeader = req.headers.get('authorization')
+    const authHeader = req.headers.get('authorization');
     if (!authHeader) {
-      throw new Error('Missing authorization header')
+      return createErrorResponse(new Error('Missing authorization header'), 401);
     }
 
     // Verify the user is authenticated
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''));
     if (authError || !user) {
-      console.error('Auth error:', authError)
-      throw new Error('Unauthorized')
+      console.error('Auth error:', authError);
+      return createErrorResponse(new Error('Unauthorized'), 401);
     }
 
     // Get plan details
@@ -44,16 +79,16 @@ serve(async (req) => {
       .from('premium_plans')
       .select('*')
       .eq('id', planId)
-      .single()
+      .single();
 
     if (planError || !plan) {
-      console.error('Error fetching plan:', planError)
-      throw new Error('Plan not found')
+      console.error('Error fetching plan:', planError);
+      return createErrorResponse(new Error('Plan not found'), 404);
     }
 
-    const orderId = uuidv4()
-    const amount = Math.round(plan.price)
-    const description = `Nâng cấp tài khoản lên gói ${plan.name}`
+    const orderId = uuidv4();
+    const amount = Math.round(plan.price);
+    const description = `Nâng cấp tài khoản lên gói ${plan.name}`;
     
     console.log('Creating payment request with params:', {
       orderId,
@@ -61,51 +96,46 @@ serve(async (req) => {
       description,
       planId,
       userId: user.id
-    })
-
-    const PAYOS_CLIENT_ID = Deno.env.get('PAYOS_CLIENT_ID')
-    const PAYOS_API_KEY = Deno.env.get('PAYOS_API_KEY')
-    const PUBLIC_SITE_URL = Deno.env.get('PUBLIC_SITE_URL') || 'https://biteology-webapp.lovable.app'
-
-    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
-      console.error('Missing PayOS configuration')
-      throw new Error('PayOS configuration is missing')
-    }
+    });
 
     // Store transaction in database first (before API call)
-    const { error: transactionError } = await supabaseClient
-      .from('payment_transactions')
-      .insert({
-        id: orderId,
-        order_id: orderId,
-        user_id: user.id,
-        plan_id: planId,
-        amount: amount,
-        payment_method: 'payos',
-        status: 'pending'
-      })
+    try {
+      const { error: transactionError } = await supabaseClient
+        .from('payment_transactions')
+        .insert({
+          id: orderId,
+          order_id: orderId,
+          user_id: user.id,
+          plan_id: planId,
+          amount: amount,
+          payment_method: 'payos',
+          status: 'pending'
+        });
 
-    if (transactionError) {
-      console.error('Error creating transaction:', transactionError)
-      throw new Error('Failed to create transaction record')
+      if (transactionError) {
+        console.error('Error creating transaction:', transactionError);
+        return createErrorResponse(new Error('Failed to create transaction record'), 500);
+      }
+    } catch (dbError) {
+      console.error('Database error while creating transaction:', dbError);
+      return createErrorResponse(new Error('Database error during transaction creation'), 500);
     }
 
-    // Check if we should use development mode (either forced or detected environment)
-    const isDevelopment = FORCE_DEV_MODE || Deno.env.get('ENVIRONMENT') === 'development';
-    
-    // If in development mode, return simulated response
-    if (isDevelopment) {
+    // Luôn sử dụng chế độ giả lập khi FORCE_DEV_MODE = true
+    if (FORCE_DEV_MODE) {
       console.log('Using simulated PayOS response for development');
       
+      // Mô phỏng phản hồi từ PayOS
       const simulatedResponse = {
         success: true,
         checkoutUrl: `https://sandbox.payos.vn/web-payment?token=simulated_${orderId}`,
-        qrCode: "https://cdn.payos.vn/img/qrcode-example.png", // Example QR image
-        orderId: orderId
+        qrCode: "https://cdn.payos.vn/img/qrcode-example.png", // Ví dụ QR code
+        orderId: orderId,
+        isDevMode: true
       };
       
-      // Add short delay to simulate network request
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Thêm độ trễ để mô phỏng yêu cầu mạng
+      await delay(500);
       
       return new Response(
         JSON.stringify(simulatedResponse),
@@ -113,14 +143,23 @@ serve(async (req) => {
       );
     }
 
-    // Production mode - attempt to call real PayOS API
+    // Môi trường sản xuất - cố gắng gọi API PayOS thực tế
     try {
-      // Using the production PayOS API URL
-      const payosApiUrl = 'https://api.payos.vn/v2/payment-requests'
+      const PAYOS_CLIENT_ID = Deno.env.get('PAYOS_CLIENT_ID');
+      const PAYOS_API_KEY = Deno.env.get('PAYOS_API_KEY');
+      const PUBLIC_SITE_URL = Deno.env.get('PUBLIC_SITE_URL') || 'https://biteology-webapp.lovable.app';
+
+      if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
+        console.error('Missing PayOS configuration');
+        return createErrorResponse(new Error('PayOS configuration is missing'), 500);
+      }
+      
+      // Sử dụng URL API PayOS
+      const payosApiUrl = 'https://api.payos.vn/v2/payment-requests';
 
       console.log('Calling PayOS API at:', payosApiUrl);
       
-      // Create payment request to PayOS
+      // Tạo yêu cầu thanh toán đến PayOS
       const payosResponse = await fetch(payosApiUrl, {
         method: 'POST',
         headers: {
@@ -145,38 +184,31 @@ serve(async (req) => {
           body: errorText
         });
         
-        throw new Error(`PayOS API error: ${payosResponse.status} ${payosResponse.statusText}`);
+        // Ghi nhận lỗi chi tiết
+        console.error(`PayOS API error: ${payosResponse.status} ${payosResponse.statusText}`);
+        return createErrorResponse(new Error(`PayOS API error: ${payosResponse.status} ${errorText.substring(0, 100)}`), 502);
       }
       
       const payosData = await payosResponse.json();
       console.log('PayOS response:', payosData);
 
-      // Return the payment URLs
+      // Trả về URL thanh toán
       return new Response(
         JSON.stringify({
           success: true,
           checkoutUrl: payosData.checkoutUrl,
           qrCode: payosData.qrCode,
-          orderId: orderId
+          orderId: orderId,
+          isDevMode: false
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
       
     } catch (apiError) {
       console.error('Error sending request to PayOS:', apiError);
-      throw new Error(`Error sending request to PayOS: ${apiError.message}`);
+      return createErrorResponse(new Error(`Error sending request to PayOS: ${apiError instanceof Error ? apiError.message : String(apiError)}`), 502);
     }
   } catch (error) {
-    console.error('Error in payos-create-order:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : 'Internal server error'
-      }),
-      { 
-        status: 400, // Return 400 instead of 500 to avoid non-2xx status code error
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    return createErrorResponse(error, 500);
   }
 });
