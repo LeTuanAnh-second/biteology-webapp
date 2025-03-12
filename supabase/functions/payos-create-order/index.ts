@@ -107,17 +107,30 @@ serve(async (req) => {
     }
 
     // Create PayOS payment request
+    const returnUrl = `https://biteology.netlify.app/payment-result?orderCode=${orderId}`;
+    const cancelUrl = `https://biteology.netlify.app/payment-result?status=cancelled&orderCode=${orderId}`;
     const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
+    
     const paymentData = {
       orderCode: orderId,
       amount,
       description,
-      cancelUrl: `https://biteology.netlify.app/payment-result?status=cancelled&orderCode=${orderId}`,
-      returnUrl: `https://biteology.netlify.app/payment-result?orderCode=${orderId}`,
-      webhookUrl
+      cancelUrl,
+      returnUrl,
+      expiredAt: Math.floor(Date.now() / 1000) + 15 * 60, // 15 minutes from now
+      items: [
+        {
+          name: `Gói Premium ${plan.name}`,
+          quantity: 1,
+          price: amount
+        }
+      ]
     };
 
     console.log("Creating PayOS payment request:", paymentData);
+    console.log("PayOS API URL:", PAYOS_API_URL);
+    console.log("PayOS Client ID:", PAYOS_CLIENT_ID ? "Set" : "Not set");
+    console.log("PayOS API Key:", PAYOS_API_KEY ? "Set" : "Not set");
 
     try {
       const payosResponse = await fetch(`${PAYOS_API_URL}/payment-requests`, {
@@ -130,36 +143,41 @@ serve(async (req) => {
         body: JSON.stringify(paymentData)
       });
 
+      const responseText = await payosResponse.text();
+      console.log(`PayOS API response (${payosResponse.status}):`, responseText);
+      
       if (!payosResponse.ok) {
-        const errorText = await payosResponse.text();
-        console.error(`PayOS API error (${payosResponse.status}):`, errorText);
         return new Response(
-          JSON.stringify({ success: false, error: "Failed to create payment request" }),
+          JSON.stringify({ 
+            success: false, 
+            error: `PayOS API error: ${payosResponse.status}`,
+            details: responseText
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
 
-      const payosResult = await payosResponse.json();
-      console.log("PayOS response:", payosResult);
+      const payosResult = JSON.parse(responseText);
+      console.log("PayOS parsed response:", payosResult);
 
-      if (!payosResult.data?.checkoutUrl) {
+      if (!payosResult.code || payosResult.code !== '00' || !payosResult.data) {
         return new Response(
-          JSON.stringify({ success: false, error: "Invalid PayOS response" }),
+          JSON.stringify({ 
+            success: false, 
+            error: "Invalid PayOS response", 
+            details: payosResult
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
 
+      // Return successful response
       return new Response(
         JSON.stringify({
           success: true,
-          data: {
-            orderId,
-            qrCodeUrl: payosResult.data.qrCode,
-            amount,
-            orderInfo: description,
-            status: 'pending',
-            paymentUrl: payosResult.data.checkoutUrl
-          }
+          orderId,
+          checkoutUrl: payosResult.data.checkoutUrl,
+          qrCode: payosResult.data.qrCode
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );

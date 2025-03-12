@@ -28,6 +28,7 @@ export const DirectPaymentLink = ({
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -35,6 +36,8 @@ export const DirectPaymentLink = ({
     if (!user || !selectedPlan) return;
     
     setIsLoading(true);
+    setError(null);
+    
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -47,6 +50,8 @@ export const DirectPaymentLink = ({
         return;
       }
       
+      console.log("Creating payment for plan:", selectedPlan.id);
+      
       // Call our PayOS create order endpoint
       const response = await supabase.functions.invoke('payos-create-order', {
         body: {
@@ -54,8 +59,14 @@ export const DirectPaymentLink = ({
         }
       });
 
+      console.log("PayOS create order response:", response);
+
       if (response.error) {
-        throw new Error(response.error.message);
+        throw new Error(response.error.message || "Không thể tạo thanh toán");
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || "Không thể tạo thanh toán");
       }
 
       const { checkoutUrl, qrCode, orderId: newOrderId } = response.data;
@@ -66,10 +77,11 @@ export const DirectPaymentLink = ({
       
     } catch (error) {
       console.error('Error creating payment:', error);
+      setError("Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại sau.");
       toast({
         variant: "destructive",
         title: "Có lỗi xảy ra",
-        description: "Không thể tạo thanh toán. Vui lòng thử lại sau.",
+        description: error instanceof Error ? error.message : "Không thể tạo thanh toán. Vui lòng thử lại sau.",
       });
     } finally {
       setIsLoading(false);
@@ -85,6 +97,7 @@ export const DirectPaymentLink = ({
       setQrImageUrl(null);
       setPaymentUrl(null);
       setOrderId(null);
+      setError(null);
     }
   }, [open, selectedPlan]);
 
@@ -100,6 +113,8 @@ export const DirectPaymentLink = ({
         const response = await supabase.functions.invoke('payos-verify-payment', {
           body: { orderId }
         });
+
+        console.log("Payment verification response:", response);
 
         if (response.error) {
           console.error('Error checking payment:', response.error);
@@ -138,6 +153,19 @@ export const DirectPaymentLink = ({
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="bg-destructive/15 p-4 rounded-md text-center mb-4">
+              <p className="text-destructive font-medium">Có lỗi xảy ra</p>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="mt-3"
+                onClick={() => createPaymentRequest()}
+              >
+                Thử lại
+              </Button>
             </div>
           ) : (
             <>

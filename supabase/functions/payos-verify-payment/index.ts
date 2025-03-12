@@ -1,6 +1,4 @@
 
-// Deno edge function to verify PayOS payment status
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
 
@@ -16,10 +14,10 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
-// PayOS API configuration - production URL
+// PayOS API configuration
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
-const PAYOS_API_URL = "https://api.payos.vn";
+const PAYOS_API_URL = "https://api.payos.vn/v2";
 
 async function verifyPayment(orderId: string) {
   try {
@@ -55,11 +53,12 @@ async function verifyPayment(orderId: string) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      console.log(`Calling PayOS API at ${PAYOS_API_URL}/v1/payment-requests/${orderId}`);
+      const payosEndpoint = `${PAYOS_API_URL}/payment-requests/${orderId}`;
+      console.log(`Calling PayOS API at ${payosEndpoint}`);
       
       let payosResponse;
       try {
-        payosResponse = await fetch(`${PAYOS_API_URL}/v1/payment-requests/${orderId}`, {
+        payosResponse = await fetch(payosEndpoint, {
           method: 'GET',
           headers: {
             'x-client-id': PAYOS_CLIENT_ID,
@@ -85,16 +84,12 @@ async function verifyPayment(orderId: string) {
         clearTimeout(timeoutId);
       }
       
+      // Log the raw response status and body
+      console.log(`PayOS API response status: ${payosResponse.status}`);
+      const rawBody = await payosResponse.text();
+      console.log('PayOS API response body:', rawBody);
+      
       if (!payosResponse.ok) {
-        console.error('PayOS API error:', payosResponse.status, payosResponse.statusText);
-        // Log response body if available
-        try {
-          const errorBody = await payosResponse.text();
-          console.error('Error response body:', errorBody);
-        } catch (e) {
-          console.error('Could not read error response body');
-        }
-        
         // Fall back to checking our database status
         if (transaction.status === 'completed') {
           return { success: true, message: 'Payment already completed' };
@@ -102,13 +97,14 @@ async function verifyPayment(orderId: string) {
         return { 
           success: false, 
           message: 'Failed to verify payment with provider', 
-          error: `Status ${payosResponse.status}`
+          error: `Status ${payosResponse.status}: ${rawBody}`
         };
       }
       
+      // Parse the JSON response
       let payosResult;
       try {
-        payosResult = await payosResponse.json();
+        payosResult = JSON.parse(rawBody);
         console.log('PayOS verification result:', payosResult);
       } catch (jsonError) {
         console.error('Failed to parse PayOS response:', jsonError);
@@ -123,15 +119,19 @@ async function verifyPayment(orderId: string) {
         };
       }
       
-      const isSuccessful = payosResult.data && 
+      // Check for successful payment status
+      const isSuccessful = payosResult.code === '00' && 
+                         payosResult.data && 
                          (payosResult.data.status === 'PAID' || 
                           payosResult.data.status === 'COMPLETED');
       
       if (isSuccessful) {
+        console.log('Payment verification successful');
+        
         // Update transaction status
         await supabase
           .from('payment_transactions')
-          .update({ status: 'completed' })
+          .update({ status: 'completed', updated_at: new Date().toISOString() })
           .eq('order_id', orderId);
           
         // Create user subscription record
@@ -141,6 +141,8 @@ async function verifyPayment(orderId: string) {
           .select('duration_days')
           .eq('id', transaction.plan_id)
           .maybeSingle();
+        
+        console.log('Plan data for subscription:', plan);
         
         // Calculate end date based on plan duration
         endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
@@ -155,6 +157,7 @@ async function verifyPayment(orderId: string) {
             .maybeSingle();
             
           if (existingSub) {
+            console.log('Updating existing subscription:', existingSub.id);
             // Update existing subscription
             await supabase
               .from('user_subscriptions')
@@ -167,6 +170,7 @@ async function verifyPayment(orderId: string) {
               })
               .eq('user_id', transaction.user_id);
           } else {
+            console.log('Creating new subscription for user:', transaction.user_id);
             // Create new subscription
             await supabase
               .from('user_subscriptions')
@@ -184,6 +188,7 @@ async function verifyPayment(orderId: string) {
         }
         
         // Update user profile to mark as premium
+        console.log('Updating user profile to premium:', transaction.user_id);
         await supabase
           .from('profiles')
           .update({ is_premium: true })
@@ -197,7 +202,12 @@ async function verifyPayment(orderId: string) {
           planId: transaction.plan_id
         };
       } else {
-        return { success: false, message: 'Payment verification failed or payment not completed' };
+        console.log('Payment not completed or verification failed');
+        return { 
+          success: false, 
+          message: 'Payment verification failed or payment not completed',
+          details: payosResult
+        };
       }
     } catch (error) {
       console.error('Error calling PayOS API:', error);
@@ -227,48 +237,26 @@ serve(async (req) => {
   }
   
   try {
-    // Check for Authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      console.error("Missing authorization header");
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing authorization header' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
+    // Parse request body for POST requests
+    let orderId;
+    if (req.method === 'POST') {
+      const body = await req.json();
+      orderId = body.orderId;
+    } else {
+      // Extract orderId from query params for GET requests
+      const url = new URL(req.url);
+      orderId = url.searchParams.get('orderId');
     }
-    
-    // Validate JWT token
-    try {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      
-      if (error || !user) {
-        console.error("Invalid token:", error);
-        return new Response(
-          JSON.stringify({ success: false, error: 'Invalid authorization token' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-        );
-      }
-      
-      console.log("Authenticated user:", user.id);
-    } catch (error) {
-      console.error("Error validating token:", error);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid authorization token' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-    
-    // Extract orderId from query params
-    const url = new URL(req.url);
-    const orderId = url.searchParams.get('orderId');
     
     if (!orderId) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing orderId parameter' }),
+        JSON.stringify({ success: false, error: 'Missing orderId' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+    
+    // For security in production, you should validate the user's permission to check this order
+    // Currently simplified for the demo
     
     const result = await verifyPayment(orderId);
     

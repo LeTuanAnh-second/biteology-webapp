@@ -41,3 +41,4 @@ verify_jwt = false
 verify_jwt = false
 [functions.zalopay-check-subscription]
 verify_jwt = false
+
