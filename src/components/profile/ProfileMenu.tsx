@@ -49,6 +49,7 @@ const ProfileMenu = () => {
         .single();
       
       if (!subscriptionError && subscriptionData) {
+        // Fix: Access name correctly from premium_plans object, not as an array
         setProfile({
           ...data,
           plan_name: subscriptionData.premium_plans?.name
