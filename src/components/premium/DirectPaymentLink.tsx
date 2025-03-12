@@ -33,7 +33,6 @@ export const DirectPaymentLink = ({
   const [error, setError] = useState<string | null>(null);
   const [transactionId, setTransactionId] = useState('');
   const [verifyingTransaction, setVerifyingTransaction] = useState(false);
-  const [isMomoTransaction, setIsMomoTransaction] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -114,20 +113,6 @@ export const DirectPaymentLink = ({
     
     try {
       console.log(`Using momo-verify-payment to verify transaction ${orderId}`);
-      
-      // Save proof of transaction first
-      const { error: proofError } = await supabase
-        .from('transaction_proofs')
-        .insert({
-          transaction_id: transactionId,
-          order_id: orderId,
-          payment_method: 'momo',
-          verified_at: new Date().toISOString()
-        });
-        
-      if (proofError) {
-        console.error("Error recording transaction proof:", proofError);
-      }
       
       // Gọi API xác minh thanh toán
       const response = await supabase.functions.invoke('momo-verify-payment', {

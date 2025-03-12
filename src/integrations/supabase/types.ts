@@ -393,6 +393,36 @@ export type Database = {
           },
         ]
       }
+      transaction_proofs: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          order_id: string
+          payment_method: string
+          transaction_id: string
+          verified_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          order_id: string
+          payment_method: string
+          transaction_id: string
+          verified_at: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          order_id?: string
+          payment_method?: string
+          transaction_id?: string
+          verified_at?: string
+        }
+        Relationships: []
+      }
       type_of_disease: {
         Row: {
           id: number

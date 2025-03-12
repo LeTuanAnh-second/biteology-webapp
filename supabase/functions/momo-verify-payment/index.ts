@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -53,6 +54,28 @@ serve(async (req) => {
     // For manual transactions, simulate successful payment after verifying the transaction ID
     if (isManualTransaction) {
       console.log('Manual payment, processing transaction')
+      
+      // Save proof of transaction first
+      try {
+        const { data: proofData, error: proofError } = await supabase
+          .from('transaction_proofs')
+          .insert({
+            transaction_id: transactionId,
+            order_id: orderId,
+            payment_method: 'momo',
+            verified_at: new Date().toISOString()
+          })
+          
+        if (proofError) {
+          console.error('Error recording transaction proof:', proofError)
+          // Continue anyway since this is just proof, not critical for the payment process
+        } else {
+          console.log('Transaction proof recorded successfully')
+        }
+      } catch (proofError) {
+        console.error('Exception recording transaction proof:', proofError)
+        // Continue anyway since this is just proof
+      }
       
       // If a transaction ID was provided, store it and update status
       if (transactionId) {
