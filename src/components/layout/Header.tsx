@@ -1,5 +1,5 @@
 
-import { Activity, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import ProfileMenu from "@/components/profile/ProfileMenu";
@@ -10,10 +10,17 @@ const Header = () => {
   return (
     <header className="border-b">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Activity className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold">B!teology</span>
-        </div>
+        <Link to="/" className="flex items-center space-x-2">
+          <img 
+            src="/lovable-uploads/bc1821b1-cd8c-4ef3-8b73-76835c2f2a2a.png" 
+            alt="Biteology Logo" 
+            className="h-8 w-auto"
+          />
+          <div className="flex flex-col">
+            <span className="text-xl font-semibold text-slate-700">B!teology</span>
+            <span className="text-xs text-slate-500 italic">Healthy Bites - Healthy Life</span>
+          </div>
+        </Link>
         <div className="flex items-center space-x-4">
           {user ? (
             <>

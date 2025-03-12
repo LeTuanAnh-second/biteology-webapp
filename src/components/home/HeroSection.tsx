@@ -18,8 +18,16 @@ const HeroSection = () => {
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div className="space-y-8 text-left">
-            <div className="hero-badge">
-              Chào mừng đến với B!teology
+            <div className="flex items-center gap-3">
+              <img 
+                src="/lovable-uploads/bc1821b1-cd8c-4ef3-8b73-76835c2f2a2a.png" 
+                alt="Biteology Logo" 
+                className="h-16 w-auto" 
+              />
+              <div>
+                <h2 className="text-3xl font-bold text-slate-700">B!teology</h2>
+                <p className="text-slate-500 italic">Healthy Bites - Healthy Life</p>
+              </div>
             </div>
             
             <h1 className="hero-title text-left">

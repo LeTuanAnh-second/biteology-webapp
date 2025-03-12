@@ -1,5 +1,4 @@
 
-import { Activity } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Footer = () => {
@@ -9,8 +8,15 @@ const Footer = () => {
         <div className="grid md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <Activity className="h-5 w-5 text-primary" />
-              <span className="font-semibold">B!teology</span>
+              <img 
+                src="/lovable-uploads/bc1821b1-cd8c-4ef3-8b73-76835c2f2a2a.png" 
+                alt="Biteology Logo" 
+                className="h-8 w-auto" 
+              />
+              <div className="flex flex-col">
+                <span className="font-semibold">B!teology</span>
+                <span className="text-xs text-slate-500 italic">Healthy Bites - Healthy Life</span>
+              </div>
             </div>
             <p className="text-sm text-slate-600">
               Giải pháp quản lý sức khỏe toàn diện dành cho mọi người.
