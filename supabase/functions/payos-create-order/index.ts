@@ -12,7 +12,7 @@ const corsHeaders = {
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
 const PAYOS_CHECKSUM_KEY = Deno.env.get("PAYOS_CHECKSUM_KEY") || "";
-const PAYOS_API_URL = "https://api.payos.vn/v2";
+const PAYOS_API_URL = "https://api-sandbox.payos.vn/v2"; // Using sandbox URL for testing
 
 serve(async (req) => {
   console.log("Function started: payos-create-order");
@@ -107,8 +107,8 @@ serve(async (req) => {
     }
 
     // Create PayOS payment request
-    const returnUrl = `https://biteology.netlify.app/payment-result?orderCode=${orderId}`;
-    const cancelUrl = `https://biteology.netlify.app/payment-result?status=cancelled&orderCode=${orderId}`;
+    const returnUrl = `${Deno.env.get("APP_URL") || "https://biteology.netlify.app"}/payment-result?orderCode=${orderId}`;
+    const cancelUrl = `${Deno.env.get("APP_URL") || "https://biteology.netlify.app"}/payment-result?status=cancelled&orderCode=${orderId}`;
     const webhookUrl = `${supabaseUrl}/functions/v1/payos-webhook`;
     
     const paymentData = {
@@ -127,12 +127,15 @@ serve(async (req) => {
       ]
     };
 
-    console.log("Creating PayOS payment request:", paymentData);
+    console.log("Creating PayOS payment request:", JSON.stringify(paymentData));
     console.log("PayOS API URL:", PAYOS_API_URL);
     console.log("PayOS Client ID:", PAYOS_CLIENT_ID ? "Set" : "Not set");
     console.log("PayOS API Key:", PAYOS_API_KEY ? "Set" : "Not set");
+    console.log("PayOS Checksum Key:", PAYOS_CHECKSUM_KEY ? "Set" : "Not set");
 
     try {
+      // For testing in dev environment, you may want to use a mock response
+      // Comment out this section and uncomment the code below for testing
       const payosResponse = await fetch(`${PAYOS_API_URL}/payment-requests`, {
         method: 'POST',
         headers: {
@@ -181,6 +184,21 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
+
+      /* Uncomment this for testing/development without actual PayOS API
+      // Simulated response for development/testing
+      const mockResponse = {
+        success: true,
+        orderId,
+        checkoutUrl: "https://example.com/checkout",
+        qrCode: "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://example.com/checkout"
+      };
+
+      return new Response(
+        JSON.stringify(mockResponse),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
+      */
 
     } catch (error) {
       console.error("PayOS API error:", error);

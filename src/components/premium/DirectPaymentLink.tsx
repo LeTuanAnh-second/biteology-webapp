@@ -1,11 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, AlertCircle, RefreshCw } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DirectPaymentLinkProps {
   open: boolean;
@@ -153,47 +154,52 @@ export const DirectPaymentLink = ({
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <span className="ml-2">Đang tạo thông tin thanh toán...</span>
             </div>
           ) : error ? (
-            <div className="bg-destructive/15 p-4 rounded-md text-center mb-4">
-              <p className="text-destructive font-medium">Có lỗi xảy ra</p>
-              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+            <div className="w-full max-w-md space-y-4">
+              <Alert variant="destructive" className="border-destructive/50 text-destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="mt-1">{error}</AlertDescription>
+              </Alert>
               <Button 
                 variant="outline" 
                 size="sm"
-                className="mt-3"
+                className="w-full flex items-center justify-center gap-2"
                 onClick={() => createPaymentRequest()}
               >
+                <RefreshCw className="h-4 w-4" />
                 Thử lại
               </Button>
             </div>
           ) : (
             <>
               {qrImageUrl && (
-                <div className="flex justify-center mb-4">
+                <div className="flex flex-col items-center mb-4">
+                  <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
                   <img 
                     src={qrImageUrl} 
                     alt="Mã QR thanh toán" 
-                    className="w-64 h-64 object-contain"
+                    className="w-64 h-64 object-contain border rounded-md shadow-sm"
                   />
                 </div>
               )}
               
               {paymentUrl && (
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="lg"
                   className="flex items-center gap-2 mt-4"
                   onClick={() => window.open(paymentUrl, '_blank')}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  Mở trang thanh toán
+                  Mở trang thanh toán PayOS
                 </Button>
               )}
             </>
           )}
 
-          <p className="text-sm text-muted-foreground mt-4 text-center">
+          <p className="text-sm text-muted-foreground mt-6 text-center max-w-sm">
             Hệ thống sẽ tự động cập nhật khi bạn thanh toán thành công.
             Vui lòng không đóng cửa sổ này trong quá trình thanh toán.
           </p>

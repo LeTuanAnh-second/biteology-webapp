@@ -1,163 +1,192 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 
-// Set up Supabase client
-const supabaseUrl = Deno.env.get("SUPABASE_URL") as string;
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") as string;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-// Set CORS headers
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-};
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
 
-// PayOS API configuration
+// PayOS configs
 const PAYOS_CLIENT_ID = Deno.env.get("PAYOS_CLIENT_ID") || "";
 const PAYOS_API_KEY = Deno.env.get("PAYOS_API_KEY") || "";
-const PAYOS_API_URL = "https://api.payos.vn/v2";
+const PAYOS_API_URL = "https://api-sandbox.payos.vn/v2"; // Using sandbox URL for testing
 
-async function verifyPayment(orderId: string) {
+serve(async (req) => {
+  console.log("Function started: payos-verify-payment");
+  
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders,
+      status: 204,
+    })
+  }
+
   try {
-    console.log(`Verifying payment for order ${orderId}`);
+    let orderId: string;
     
-    // Check if transaction exists in our database
+    // Handle both GET and POST methods
+    if (req.method === 'GET') {
+      // Extract orderId from URL params
+      const url = new URL(req.url);
+      orderId = url.searchParams.get('orderId') || '';
+      
+      if (!orderId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Missing orderId parameter" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+    } else if (req.method === 'POST') {
+      // Extract orderId from request body
+      const requestData = await req.json();
+      orderId = requestData.orderId || '';
+      
+      if (!orderId) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Missing orderId in request body" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+        );
+      }
+    } else {
+      return new Response(
+        JSON.stringify({ success: false, error: "Method not allowed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 405 }
+      );
+    }
+
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // First check if the transaction is already completed in our database
     const { data: transaction, error: transactionError } = await supabase
       .from('payment_transactions')
       .select('*')
       .eq('order_id', orderId)
-      .maybeSingle();
-    
+      .single();
+
     if (transactionError) {
-      console.error('Error fetching transaction:', transactionError);
-      return { success: false, message: 'Error fetching transaction' };
+      console.error("Error fetching transaction:", transactionError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Failed to fetch transaction" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
-    
+
     if (!transaction) {
-      console.log('Transaction not found:', orderId);
-      return { success: false, message: 'Transaction not found' };
+      return new Response(
+        JSON.stringify({ success: false, error: "Transaction not found" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+      );
     }
+
+    console.log("Found transaction:", transaction);
     
-    console.log('Transaction found:', transaction);
-    
-    // Verify that we have all needed PayOS credentials
-    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
-      console.error('Missing PayOS credentials required for verification');
-      return { success: false, message: 'Payment provider configuration error' };
+    // If transaction is already completed, return success
+    if (transaction.status === 'completed') {
+      return new Response(
+        JSON.stringify({ success: true, message: "Payment already completed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
     }
-    
+
+    // Call PayOS API to check payment status
     try {
-      // Call PayOS API to check payment status with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      console.log(`Checking payment status for order: ${orderId}`);
       
-      const payosEndpoint = `${PAYOS_API_URL}/payment-requests/${orderId}`;
-      console.log(`Calling PayOS API at ${payosEndpoint}`);
-      
-      let payosResponse;
-      try {
-        payosResponse = await fetch(payosEndpoint, {
-          method: 'GET',
-          headers: {
-            'x-client-id': PAYOS_CLIENT_ID,
-            'x-api-key': PAYOS_API_KEY,
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
-        });
-      } catch (fetchError) {
-        console.error('Fetch error when checking payment status:', fetchError);
-        clearTimeout(timeoutId);
-        
-        // Fall back to checking our database status
-        if (transaction.status === 'completed') {
-          return { success: true, message: 'Payment already completed' };
+      const payosResponse = await fetch(`${PAYOS_API_URL}/payment-requests/${orderId}`, {
+        method: 'GET',
+        headers: {
+          'x-client-id': PAYOS_CLIENT_ID,
+          'x-api-key': PAYOS_API_KEY,
         }
-        return { 
-          success: false, 
-          message: 'Failed to verify payment with provider', 
-          error: fetchError.message 
-        };
-      } finally {
-        clearTimeout(timeoutId);
-      }
-      
-      // Log the raw response status and body
-      console.log(`PayOS API response status: ${payosResponse.status}`);
-      const rawBody = await payosResponse.text();
-      console.log('PayOS API response body:', rawBody);
-      
+      });
+
+      const responseText = await payosResponse.text();
+      console.log(`PayOS API response (${payosResponse.status}):`, responseText);
+
       if (!payosResponse.ok) {
-        // Fall back to checking our database status
-        if (transaction.status === 'completed') {
-          return { success: true, message: 'Payment already completed' };
+        // If PayOS API returns an error, we'll try to parse it and return a meaningful error
+        let errorMessage = "Failed to check payment status";
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // If we can't parse the error, just use the default message
         }
-        return { 
-          success: false, 
-          message: 'Failed to verify payment with provider', 
-          error: `Status ${payosResponse.status}: ${rawBody}`
-        };
-      }
-      
-      // Parse the JSON response
-      let payosResult;
-      try {
-        payosResult = JSON.parse(rawBody);
-        console.log('PayOS verification result:', payosResult);
-      } catch (jsonError) {
-        console.error('Failed to parse PayOS response:', jsonError);
-        // Fall back to checking our database status
-        if (transaction.status === 'completed') {
-          return { success: true, message: 'Payment already completed' };
-        }
-        return { 
-          success: false, 
-          message: 'Invalid response from payment provider', 
-          error: jsonError.message
-        };
-      }
-      
-      // Check for successful payment status
-      const isSuccessful = payosResult.code === '00' && 
-                         payosResult.data && 
-                         (payosResult.data.status === 'PAID' || 
-                          payosResult.data.status === 'COMPLETED');
-      
-      if (isSuccessful) {
-        console.log('Payment verification successful');
         
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: errorMessage,
+            details: responseText
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      // Parse the response
+      let payosData;
+      try {
+        payosData = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Error parsing PayOS response:", e);
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid response from PayOS" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+
+      console.log("PayOS parsed data:", payosData);
+
+      // Check if the payment was successful
+      const isPaymentSuccess = 
+        payosData.code === '00' && 
+        payosData.data && 
+        payosData.data.status === 'PAID';
+
+      if (isPaymentSuccess) {
         // Update transaction status
-        await supabase
+        const { error: updateError } = await supabase
           .from('payment_transactions')
-          .update({ status: 'completed', updated_at: new Date().toISOString() })
-          .eq('order_id', orderId);
-          
-        // Create user subscription record
-        const endDate = new Date();
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', transaction.id);
+
+        if (updateError) {
+          console.error("Error updating transaction:", updateError);
+          return new Response(
+            JSON.stringify({ success: false, error: "Failed to update transaction" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          );
+        }
+
+        // Get plan details
         const { data: plan } = await supabase
           .from('premium_plans')
           .select('duration_days')
           .eq('id', transaction.plan_id)
-          .maybeSingle();
-        
-        console.log('Plan data for subscription:', plan);
-        
-        // Calculate end date based on plan duration
-        endDate.setDate(endDate.getDate() + (plan?.duration_days || 30));
-        
-        // Create or update user subscription
-        try {
-          // Check if subscription exists
+          .single();
+
+        if (plan) {
+          // Calculate subscription end date
+          const endDate = new Date();
+          endDate.setDate(endDate.getDate() + (plan.duration_days || 30));
+
+          // Check if user already has a subscription
           const { data: existingSub } = await supabase
             .from('user_subscriptions')
             .select('*')
             .eq('user_id', transaction.user_id)
+            .eq('status', 'active')
             .maybeSingle();
-            
+
           if (existingSub) {
-            console.log('Updating existing subscription:', existingSub.id);
             // Update existing subscription
             await supabase
               .from('user_subscriptions')
@@ -165,12 +194,10 @@ async function verifyPayment(orderId: string) {
                 plan_id: transaction.plan_id,
                 start_date: new Date().toISOString(),
                 end_date: endDate.toISOString(),
-                status: 'active',
                 transaction_id: transaction.id
               })
-              .eq('user_id', transaction.user_id);
+              .eq('id', existingSub.id);
           } else {
-            console.log('Creating new subscription for user:', transaction.user_id);
             // Create new subscription
             await supabase
               .from('user_subscriptions')
@@ -183,94 +210,44 @@ async function verifyPayment(orderId: string) {
                 transaction_id: transaction.id
               });
           }
-        } catch (err) {
-          console.error('Error handling subscription:', err);
+
+          // Update user premium status
+          await supabase
+            .from('profiles')
+            .update({ is_premium: true })
+            .eq('id', transaction.user_id);
         }
-        
-        // Update user profile to mark as premium
-        console.log('Updating user profile to premium:', transaction.user_id);
-        await supabase
-          .from('profiles')
-          .update({ is_premium: true })
-          .eq('id', transaction.user_id);
-        
-        return { 
-          success: true, 
-          message: 'Payment verified successfully',
-          orderId: orderId,
-          userId: transaction.user_id,
-          planId: transaction.plan_id
-        };
+
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: "Payment successful and subscription updated"
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
       } else {
-        console.log('Payment not completed or verification failed');
-        return { 
-          success: false, 
-          message: 'Payment verification failed or payment not completed',
-          details: payosResult
-        };
+        // Payment not successful yet
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: "Payment not completed yet",
+            status: payosData.data?.status || "UNKNOWN"
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
       }
     } catch (error) {
-      console.error('Error calling PayOS API:', error);
-      // Fall back to checking our database status
-      if (transaction.status === 'completed') {
-        return { success: true, message: 'Payment already completed' };
-      }
-      return { success: false, message: 'Error verifying payment', error: String(error) };
-    }
-    
-  } catch (error) {
-    console.error('Error verifying payment:', error);
-    return { success: false, message: 'Error verifying payment', error: String(error) };
-  }
-}
-
-serve(async (req) => {
-  console.log("Received request:", req.method, req.url);
-  
-  // Handle CORS preflight request
-  if (req.method === 'OPTIONS') {
-    console.log("Responding to OPTIONS request with CORS headers");
-    return new Response(null, { 
-      headers: corsHeaders, 
-      status: 204 
-    });
-  }
-  
-  try {
-    // Parse request body for POST requests
-    let orderId;
-    if (req.method === 'POST') {
-      const body = await req.json();
-      orderId = body.orderId;
-    } else {
-      // Extract orderId from query params for GET requests
-      const url = new URL(req.url);
-      orderId = url.searchParams.get('orderId');
-    }
-    
-    if (!orderId) {
+      console.error("Error checking payment with PayOS:", error);
       return new Response(
-        JSON.stringify({ success: false, error: 'Missing orderId' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ success: false, error: String(error) }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
       );
     }
-    
-    // For security in production, you should validate the user's permission to check this order
-    // Currently simplified for the demo
-    
-    const result = await verifyPayment(orderId);
-    
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-    
   } catch (error) {
-    console.error('Error processing request:', error);
-    
+    console.error("Unexpected error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: 'Internal server error', details: String(error) }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ success: false, error: String(error) }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }
 });
