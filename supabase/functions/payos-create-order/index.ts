@@ -60,65 +60,92 @@ serve(async (req) => {
       userId: user.id
     })
 
-    // Create payment request to PayOS
-    const payosResponse = await fetch('https://api.payos.vn/v2/payment-requests', {
-      method: 'POST',
-      headers: {
-        'x-client-id': Deno.env.get('PAYOS_CLIENT_ID') || '',
-        'x-api-key': Deno.env.get('PAYOS_API_KEY') || '',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        orderCode: orderId,
-        amount,
-        description,
-        cancelUrl: `${Deno.env.get('PUBLIC_SITE_URL')}/premium`,
-        returnUrl: `${Deno.env.get('PUBLIC_SITE_URL')}/payment-result?orderCode=${orderId}`,
-        signature: '', // PayOS will calculate this
-      }),
-    })
+    const PAYOS_CLIENT_ID = Deno.env.get('PAYOS_CLIENT_ID')
+    const PAYOS_API_KEY = Deno.env.get('PAYOS_API_KEY')
+    const PUBLIC_SITE_URL = Deno.env.get('PUBLIC_SITE_URL') || 'https://biteology-webapp.lovable.app'
 
-    if (!payosResponse.ok) {
-      const errorText = await payosResponse.text()
-      console.error('PayOS API error:', {
-        status: payosResponse.status,
-        statusText: payosResponse.statusText,
-        body: errorText
-      })
-      throw new Error(`PayOS API error: ${payosResponse.status} ${payosResponse.statusText}`)
+    if (!PAYOS_CLIENT_ID || !PAYOS_API_KEY) {
+      console.error('Missing PayOS configuration')
+      throw new Error('PayOS configuration is missing')
     }
 
-    const payosData = await payosResponse.json()
-    console.log('PayOS response:', payosData)
-
-    // Store transaction in database
-    const { error: transactionError } = await supabaseClient
-      .from('payment_transactions')
-      .insert({
-        id: orderId,
-        user_id: user.id,
-        plan_id: planId,
-        amount: amount,
-        payment_method: 'payos',
-        status: 'pending'
+    // Using the production PayOS API URL
+    const payosApiUrl = 'https://api.payos.vn/v2/payment-requests'
+    
+    try {
+      // Create payment request to PayOS
+      const payosResponse = await fetch(payosApiUrl, {
+        method: 'POST',
+        headers: {
+          'x-client-id': PAYOS_CLIENT_ID,
+          'x-api-key': PAYOS_API_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderCode: orderId,
+          amount,
+          description,
+          cancelUrl: `${PUBLIC_SITE_URL}/premium`,
+          returnUrl: `${PUBLIC_SITE_URL}/payment-result?orderCode=${orderId}`,
+          signature: '', // PayOS will calculate this
+        }),
       })
 
-    if (transactionError) {
-      console.error('Error creating transaction:', transactionError)
-      throw new Error('Failed to create transaction record')
+      if (!payosResponse.ok) {
+        const errorText = await payosResponse.text()
+        console.error('PayOS API error:', {
+          status: payosResponse.status,
+          statusText: payosResponse.statusText,
+          body: errorText
+        })
+        
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `PayOS API error: ${payosResponse.status} ${payosResponse.statusText}`,
+            details: errorText
+          }),
+          { 
+            status: 400, // Return 400 instead of 500 to avoid non-2xx status code error
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      const payosData = await payosResponse.json()
+      console.log('PayOS response:', payosData)
+
+      // Store transaction in database
+      const { error: transactionError } = await supabaseClient
+        .from('payment_transactions')
+        .insert({
+          id: orderId,
+          user_id: user.id,
+          plan_id: planId,
+          amount: amount,
+          payment_method: 'payos',
+          status: 'pending'
+        })
+
+      if (transactionError) {
+        console.error('Error creating transaction:', transactionError)
+        throw new Error('Failed to create transaction record')
+      }
+
+      // Return the payment URLs
+      return new Response(
+        JSON.stringify({
+          success: true,
+          checkoutUrl: payosData.checkoutUrl,
+          qrCode: payosData.qrCode,
+          orderId: orderId
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    } catch (fetchError) {
+      console.error('Error calling PayOS API:', fetchError)
+      throw new Error(`Error sending request to PayOS: ${fetchError.message}`)
     }
-
-    // Return the payment URLs
-    return new Response(
-      JSON.stringify({
-        success: true,
-        checkoutUrl: payosData.checkoutUrl,
-        qrCode: payosData.qrCode,
-        orderId: orderId
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-
   } catch (error) {
     console.error('Error in payos-create-order:', error)
     return new Response(
@@ -127,10 +154,9 @@ serve(async (req) => {
         error: error instanceof Error ? error.message : 'Internal server error'
       }),
       { 
-        status: 500,
+        status: 400, // Return 400 instead of 500 to avoid non-2xx status code error
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     )
   }
 })
-

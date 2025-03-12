@@ -38,6 +38,8 @@ export const DirectPaymentLink = ({
     
     setIsLoading(true);
     setError(null);
+    setQrImageUrl(null);
+    setPaymentUrl(null);
     
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -71,6 +73,11 @@ export const DirectPaymentLink = ({
       }
 
       const { checkoutUrl, qrCode, orderId: newOrderId } = response.data;
+      
+      // Ensure the QR code URL is actually set
+      if (!qrCode) {
+        throw new Error("Không nhận được mã QR từ PayOS");
+      }
       
       setQrImageUrl(qrCode);
       setPaymentUrl(checkoutUrl);
