@@ -22,10 +22,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Đặt thời gian cho phiên đăng nhập là 1 ngày (86400 giây)
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Khi đăng nhập thành công, thiết lập thời gian hết hạn
+        const expiryTime = new Date();
+        expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+        localStorage.setItem('session_expiry', expiryTime.toISOString());
+      }
+    });
+
+    // Kiểm tra phiên đăng nhập đã hết hạn chưa
+    const checkSessionExpiry = () => {
+      const expiryTimeStr = localStorage.getItem('session_expiry');
+      if (expiryTimeStr) {
+        const expiryTime = new Date(expiryTimeStr);
+        if (new Date() > expiryTime) {
+          // Phiên đăng nhập đã hết hạn, đăng xuất người dùng
+          supabase.auth.signOut().then(() => {
+            localStorage.removeItem('session_expiry');
+            setUser(null);
+            navigate('/login');
+            toast({
+              title: "Phiên đăng nhập đã hết hạn",
+              description: "Vui lòng đăng nhập lại để tiếp tục.",
+              variant: "destructive"
+            });
+          });
+        }
+      }
+    };
+
+    // Kiểm tra định kỳ mỗi phút để xem phiên đăng nhập đã hết hạn chưa
+    const intervalId = setInterval(checkSessionExpiry, 60000);
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // Nếu có session nhưng không có thời gian hết hạn, đặt thời gian hết hạn
+      if (session && !localStorage.getItem('session_expiry')) {
+        const expiryTime = new Date();
+        expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+        localStorage.setItem('session_expiry', expiryTime.toISOString());
+      }
+      
+      // Kiểm tra ngay khi khởi động
+      checkSessionExpiry();
     });
 
     // Listen for auth changes
@@ -35,8 +79,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [navigate, toast]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -46,6 +93,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (error) throw error;
+
+      // Thiết lập thời gian hết hạn khi đăng nhập thành công
+      const expiryTime = new Date();
+      expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+      localStorage.setItem('session_expiry', expiryTime.toISOString());
 
       toast({
         title: "Đăng nhập thành công",
@@ -71,6 +123,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
 
+      // Thiết lập thời gian hết hạn khi đăng ký thành công
+      const expiryTime = new Date();
+      expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+      localStorage.setItem('session_expiry', expiryTime.toISOString());
+
       toast({
         title: "Đăng ký thành công",
         description: "Tài khoản của bạn đã được tạo"
@@ -90,6 +147,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+
+      // Xóa thời gian hết hạn khi đăng xuất
+      localStorage.removeItem('session_expiry');
 
       toast({
         title: "Đăng xuất thành công"
@@ -113,4 +173,3 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
