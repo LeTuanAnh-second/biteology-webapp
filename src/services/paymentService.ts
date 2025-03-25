@@ -36,7 +36,7 @@ export const paymentService = {
     // Get QR image based on plan type
     const qrImages = {
       basic: "/lovable-uploads/358581bf-724d-47aa-b28d-62e3529ef5ad.png",
-      standard: "/lovable-uploads/b19023aa-c7f7-4dea-b541-562bcabfcd3c.png"
+      standard: "/lovable-uploads/6ec0f201-c560-42db-848d-7393ce01ba51.png"
     };
     
     // Select QR image based on plan name (lowercase for consistency)
