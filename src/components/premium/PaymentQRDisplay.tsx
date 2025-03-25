@@ -18,7 +18,7 @@ export const PaymentQRDisplay: FC<PaymentQRDisplayProps> = ({
       <img 
         src={qrImageUrl} 
         alt="Mã QR thanh toán" 
-        className="w-64 h-64 object-contain border rounded-md shadow-sm"
+        className="w-80 h-80 object-contain border rounded-md shadow-sm"
       />
       <p className="text-sm font-medium mt-2">Số tiền: {amount.toLocaleString('vi-VN')} VND</p>
       <p className="text-xs text-muted-foreground mt-1">
