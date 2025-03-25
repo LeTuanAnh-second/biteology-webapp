@@ -1,14 +1,14 @@
 
 import { useState, useEffect } from "react";
-import { Loader2, Check, AlertCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
+import { PaymentQRDisplay } from "./PaymentQRDisplay";
+import { TransactionVerifier } from "./TransactionVerifier";
+import { PaymentLoading } from "./PaymentLoading";
+import { PaymentError } from "./PaymentError";
+import { paymentService } from "@/services/paymentService";
 
 interface DirectPaymentLinkProps {
   open: boolean;
@@ -31,16 +31,8 @@ export const DirectPaymentLink = ({
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [transactionId, setTransactionId] = useState('');
-  const [verifyingTransaction, setVerifyingTransaction] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  // QR Images based on plan
-  const qrImages = {
-    basic: "/lovable-uploads/358581bf-724d-47aa-b28d-62e3529ef5ad.png", // Default QR for basic plan
-    standard: "/lovable-uploads/b19023aa-c7f7-4dea-b541-562bcabfcd3c.png" // New QR for standard plan
-  };
   
   const createPaymentRequest = async () => {
     if (!user || !selectedPlan) return;
@@ -63,37 +55,15 @@ export const DirectPaymentLink = ({
       
       console.log("Creating payment for plan:", selectedPlan.id);
       
-      // Generate a random order ID for tracking - use momo prefix
-      const manualOrderId = `momo-${Date.now()}`;
+      const result = await paymentService.createPaymentRequest({
+        userId: user.id,
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        amount: selectedPlan.price
+      });
       
-      // Create a transaction record in database
-      const { data, error } = await supabase
-        .from('payment_transactions')
-        .insert({
-          user_id: user.id,
-          plan_id: selectedPlan.id,
-          amount: selectedPlan.price,
-          status: 'pending',
-          payment_method: 'momo',
-          order_id: manualOrderId
-        })
-        .select()
-        .single();
-        
-      if (error) {
-        console.error("Error creating transaction:", error);
-        throw new Error("Không thể tạo giao dịch");
-      }
-      
-      setOrderId(manualOrderId);
-      
-      // Select QR image based on plan name (lowercase for consistency)
-      const planName = selectedPlan.name.toLowerCase();
-      const qrImage = planName === 'tiêu chuẩn' || planName === 'standard' 
-        ? qrImages.standard 
-        : qrImages.basic;
-      
-      setQrImageUrl(qrImage);
+      setOrderId(result.orderId);
+      setQrImageUrl(result.qrImageUrl);
       
     } catch (error) {
       console.error('Error creating payment:', error);
@@ -109,8 +79,8 @@ export const DirectPaymentLink = ({
   };
 
   // Verify manual transaction
-  const verifyManualTransaction = async () => {
-    if (!transactionId || !orderId || !selectedPlan) {
+  const verifyManualTransaction = async (transactionId: string) => {
+    if (!orderId || !selectedPlan) {
       toast({
         variant: "destructive",
         title: "Thiếu thông tin",
@@ -119,24 +89,10 @@ export const DirectPaymentLink = ({
       return;
     }
     
-    setVerifyingTransaction(true);
-    
     try {
       console.log(`Using momo-verify-payment to verify transaction ${orderId}`);
       
-      // Gọi API xác minh thanh toán
-      const response = await supabase.functions.invoke('momo-verify-payment', {
-        body: { 
-          orderId: orderId,
-          transactionId: transactionId
-        }
-      });
-      
-      console.log("Verification response:", response);
-      
-      if (!response.data?.success) {
-        throw new Error(response.data?.error || "Không thể xác minh giao dịch");
-      }
+      await paymentService.verifyTransaction(orderId, transactionId);
       
       // Hiển thị thông báo thành công
       toast({
@@ -155,23 +111,18 @@ export const DirectPaymentLink = ({
         title: "Lỗi xác minh giao dịch",
         description: error instanceof Error ? error.message : "Không thể xác minh giao dịch. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
       });
-    } finally {
-      setVerifyingTransaction(false);
     }
   };
 
   // Create payment request when dialog opens
   useEffect(() => {
     if (open && selectedPlan) {
-      // Reset transaction ID when opening
-      setTransactionId('');
       createPaymentRequest();
     } else {
       // Reset state when dialog closes
       setQrImageUrl(null);
       setOrderId(null);
       setError(null);
-      setTransactionId('');
     }
   }, [open, selectedPlan]);
 
@@ -187,76 +138,23 @@ export const DirectPaymentLink = ({
         
         <div className="flex flex-col items-center py-4">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <span className="ml-2">Đang tạo thông tin thanh toán...</span>
-            </div>
+            <PaymentLoading />
           ) : error ? (
-            <div className="w-full max-w-md space-y-4">
-              <Alert variant="destructive" className="border-destructive/50 text-destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="mt-1">{error}</AlertDescription>
-              </Alert>
-              
-              <div className="flex flex-col gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="w-full flex items-center justify-center gap-2"
-                  onClick={() => createPaymentRequest()}
-                >
-                  Thử lại
-                </Button>
-              </div>
-            </div>
+            <PaymentError 
+              errorMessage={error} 
+              onRetry={createPaymentRequest} 
+            />
           ) : (
             <>
               <div className="flex flex-col items-center gap-4 w-full">
-                <div className="flex flex-col items-center mb-2">
-                  <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
-                  <img 
-                    src={qrImageUrl || ""} 
-                    alt="Mã QR thanh toán" 
-                    className="w-64 h-64 object-contain border rounded-md shadow-sm"
-                  />
-                  <p className="text-sm font-medium mt-2">Số tiền: {selectedPlan?.price.toLocaleString('vi-VN')} VND</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    LE TUAN ANH<br />
-                    6310941542<br />
-                    BIDV - CN DAK LAK
-                  </p>
-                </div>
+                <PaymentQRDisplay 
+                  qrImageUrl={qrImageUrl} 
+                  amount={selectedPlan?.price || 0} 
+                />
                 
-                <div className="w-full space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="transactionId">Mã giao dịch</Label>
-                    <Input 
-                      id="transactionId"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                      placeholder="Nhập mã giao dịch từ ngân hàng hoặc MoMo"
-                      className="w-full"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Nhập mã giao dịch từ tin nhắn ngân hàng hoặc MoMo sau khi đã thanh toán
-                    </p>
-                  </div>
-                  
-                  <Button 
-                    variant="default" 
-                    size="lg"
-                    className="w-full flex items-center gap-2"
-                    onClick={verifyManualTransaction}
-                    disabled={!transactionId || transactionId.length < 5 || verifyingTransaction}
-                  >
-                    {verifyingTransaction ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                    Xác nhận thanh toán
-                  </Button>
-                </div>
+                <TransactionVerifier 
+                  onVerify={verifyManualTransaction}
+                />
               </div>
             </>
           )}
