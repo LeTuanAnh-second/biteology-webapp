@@ -36,8 +36,11 @@ export const DirectPaymentLink = ({
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Fixed QR Image 
-  const fixedQrImage = "/lovable-uploads/358581bf-724d-47aa-b28d-62e3529ef5ad.png";
+  // QR Images based on plan
+  const qrImages = {
+    basic: "/lovable-uploads/358581bf-724d-47aa-b28d-62e3529ef5ad.png", // Default QR for basic plan
+    standard: "/lovable-uploads/b19023aa-c7f7-4dea-b541-562bcabfcd3c.png" // New QR for standard plan
+  };
   
   const createPaymentRequest = async () => {
     if (!user || !selectedPlan) return;
@@ -83,7 +86,14 @@ export const DirectPaymentLink = ({
       }
       
       setOrderId(manualOrderId);
-      setQrImageUrl(fixedQrImage);
+      
+      // Select QR image based on plan name (lowercase for consistency)
+      const planName = selectedPlan.name.toLowerCase();
+      const qrImage = planName === 'tiêu chuẩn' || planName === 'standard' 
+        ? qrImages.standard 
+        : qrImages.basic;
+      
+      setQrImageUrl(qrImage);
       
     } catch (error) {
       console.error('Error creating payment:', error);
@@ -205,7 +215,7 @@ export const DirectPaymentLink = ({
                 <div className="flex flex-col items-center mb-2">
                   <p className="text-sm text-muted-foreground mb-2">Quét mã QR để thanh toán</p>
                   <img 
-                    src={fixedQrImage} 
+                    src={qrImageUrl || ""} 
                     alt="Mã QR thanh toán" 
                     className="w-64 h-64 object-contain border rounded-md shadow-sm"
                   />
