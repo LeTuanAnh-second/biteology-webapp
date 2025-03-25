@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -114,6 +115,29 @@ export const DirectPaymentLink = ({
     }
   };
 
+  // Cancel payment
+  const handleCancelPayment = async () => {
+    if (!orderId) return;
+    
+    try {
+      await paymentService.cancelPayment(orderId);
+      
+      toast({
+        title: "Đã hủy thanh toán",
+        description: "Giao dịch đã được hủy thành công.",
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error cancelling payment:', error);
+      toast({
+        variant: "destructive",
+        title: "Lỗi hủy thanh toán",
+        description: error instanceof Error ? error.message : "Không thể hủy thanh toán. Vui lòng thử lại sau.",
+      });
+    }
+  };
+
   // Create payment request when dialog opens
   useEffect(() => {
     if (open && selectedPlan) {
@@ -155,6 +179,14 @@ export const DirectPaymentLink = ({
                 <TransactionVerifier 
                   onVerify={verifyManualTransaction}
                 />
+
+                <Button 
+                  variant="outline" 
+                  className="mt-2 w-full"
+                  onClick={handleCancelPayment}
+                >
+                  Hủy thanh toán
+                </Button>
               </div>
             </>
           )}

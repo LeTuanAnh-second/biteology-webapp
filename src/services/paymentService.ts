@@ -64,5 +64,24 @@ export const paymentService = {
     }
     
     return response.data;
+  },
+
+  async cancelPayment(orderId: string) {
+    if (!orderId) {
+      throw new Error("Thiếu mã đơn hàng");
+    }
+
+    // Update the transaction status to 'cancelled' in the database
+    const { error } = await supabase
+      .from('payment_transactions')
+      .update({ status: 'cancelled' })
+      .eq('order_id', orderId);
+
+    if (error) {
+      console.error("Error cancelling transaction:", error);
+      throw new Error("Không thể hủy giao dịch");
+    }
+
+    return { success: true };
   }
 };
