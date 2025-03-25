@@ -42,7 +42,7 @@ const HeroSection = () => {
             <div className="flex flex-wrap items-center gap-4">
               {user ? (
                 <>
-                  <Link to="/health-tracking" className="primary-button">
+                  <Link to="/about" className="primary-button">
                     Bắt đầu ngay
                   </Link>
                   <Link to="/premium" className="flex items-center secondary-button">

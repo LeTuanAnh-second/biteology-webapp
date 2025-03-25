@@ -16,6 +16,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import Profile from "./pages/Profile";
 import Premium from "./pages/Premium";
 import PaymentResult from "./pages/PaymentResult";
+import About from "./pages/About";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<About />} />
             <Route
               path="/profile"
               element={
