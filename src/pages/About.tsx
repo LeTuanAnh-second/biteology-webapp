@@ -3,7 +3,7 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Book, Heart, Leaf, User, Zap } from "lucide-react";
+import { Book, Heart, Leaf, User, Zap, Target, Shield, BarChart, Sparkles } from "lucide-react";
 
 const About = () => {
   return (
@@ -24,6 +24,102 @@ const About = () => {
                   alt="Biteology Logo" 
                   className="h-32 w-auto" 
                 />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Introduction section - NEW */}
+        <section className="py-16 bg-white">
+          <div className="container px-4 mx-auto">
+            <div className="max-w-5xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-10 items-center">
+                <div>
+                  <h2 className="text-3xl font-bold text-slate-800 mb-6">Hiểu rõ hơn về B!teology</h2>
+                  <div className="prose prose-lg">
+                    <p>
+                      <strong>B!teology</strong> là nền tảng công nghệ dinh dưỡng thông minh, được phát triển bởi đội ngũ chuyên gia 
+                      hàng đầu Việt Nam trong lĩnh vực công nghệ và y tế dinh dưỡng.
+                    </p>
+                    <p>
+                      Chúng tôi kết hợp trí tuệ nhân tạo và kiến thức dinh dưỡng để cung cấp các giải pháp 
+                      quản lý sức khỏe cá nhân hóa, giúp người Việt Nam xây dựng lối sống lành mạnh bền vững 
+                      thông qua chế độ ăn uống khoa học.
+                    </p>
+                    <p>
+                      Với B!teology, việc theo dõi dinh dưỡng và quản lý sức khỏe trở nên đơn giản, chính xác 
+                      và hiệu quả hơn bao giờ hết.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd" 
+                    alt="Healthy food variety" 
+                    className="rounded-lg shadow-xl w-full h-auto object-cover aspect-square"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pain points section - NEW */}
+        <section className="py-16 bg-slate-50">
+          <div className="container px-4 mx-auto">
+            <div className="max-w-5xl mx-auto">
+              <h2 className="text-3xl font-bold text-slate-800 mb-10 text-center">Những thách thức về dinh dưỡng hiện nay</h2>
+              
+              <div className="grid md:grid-cols-2 gap-10 items-center">
+                <div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2" 
+                    alt="Person struggling with health choices" 
+                    className="rounded-lg shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  />
+                </div>
+                <div>
+                  <div className="space-y-6">
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Target className="h-6 w-6 text-red-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">Thiếu hiểu biết về dinh dưỡng</h3>
+                        <p className="text-slate-600">
+                          Phần lớn người Việt Nam không có đủ kiến thức để đưa ra lựa chọn dinh dưỡng đúng đắn, 
+                          dẫn đến việc ăn uống thiếu cân bằng và nhiều vấn đề sức khỏe.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <BarChart className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">Theo dõi dinh dưỡng phức tạp</h3>
+                        <p className="text-slate-600">
+                          Việc theo dõi lượng calo, chất dinh dưỡng đa lượng và vi lượng tốn thời gian và đòi hỏi nhiều nỗ lực, 
+                          khiến nhiều người nhanh chóng từ bỏ.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-4">
+                      <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Shield className="h-6 w-6 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold mb-2">Thông tin sai lệch tràn lan</h3>
+                        <p className="text-slate-600">
+                          Internet và mạng xã hội chứa đầy thông tin dinh dưỡng đối lập và không dựa trên khoa học, 
+                          gây hoang mang cho người tiêu dùng.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -58,6 +154,113 @@ const About = () => {
                   alt="Healthy foods assortment" 
                   className="rounded-lg shadow-xl w-full h-auto object-cover aspect-[4/3]"
                 />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Competitive advantages - NEW */}
+        <section className="py-16 bg-gradient-to-r from-green-50 to-blue-50">
+          <div className="container px-4 mx-auto">
+            <div className="max-w-5xl mx-auto">
+              <h2 className="text-3xl font-bold text-slate-800 mb-10 text-center">Lợi thế vượt trội của B!teology</h2>
+              
+              <div className="grid md:grid-cols-2 gap-10 items-center">
+                <div>
+                  <div className="space-y-6">
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <Sparkles className="h-6 w-6 text-yellow-500 mr-3" />
+                        <h3 className="text-xl font-semibold">Thuật toán AI tiên tiến</h3>
+                      </div>
+                      <p className="text-slate-600">
+                        Khác với các ứng dụng dinh dưỡng thông thường, B!teology sử dụng trí tuệ nhân tạo để 
+                        phân tích dữ liệu sức khỏe và đề xuất kế hoạch dinh dưỡng tối ưu cho từng cá nhân.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <Leaf className="h-6 w-6 text-green-500 mr-3" />
+                        <h3 className="text-xl font-semibold">Cơ sở dữ liệu thực phẩm Việt Nam</h3>
+                      </div>
+                      <p className="text-slate-600">
+                        Chúng tôi phát triển cơ sở dữ liệu thực phẩm đặc biệt cho người Việt với đầy đủ 
+                        thông tin về các món ăn địa phương, không như các ứng dụng quốc tế thiếu dữ liệu này.
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                      <div className="flex items-center mb-4">
+                        <Book className="h-6 w-6 text-blue-500 mr-3" />
+                        <h3 className="text-xl font-semibold">Tư vấn từ chuyên gia thực thụ</h3>
+                      </div>
+                      <p className="text-slate-600">
+                        Đội ngũ chuyên gia dinh dưỡng của chúng tôi thường xuyên kiểm tra và cập nhật 
+                        thông tin, đảm bảo mọi lời khuyên đều dựa trên cơ sở khoa học và phù hợp với người Việt.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7" 
+                    alt="Advanced technology visualization" 
+                    className="rounded-lg shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Market need - NEW */}
+        <section className="py-16 bg-white">
+          <div className="container px-4 mx-auto">
+            <div className="max-w-5xl mx-auto">
+              <h2 className="text-3xl font-bold text-slate-800 mb-10 text-center">Tại sao thị trường Việt Nam cần B!teology?</h2>
+              
+              <div className="grid md:grid-cols-2 gap-10 items-center">
+                <div>
+                  <img 
+                    src="https://images.unsplash.com/photo-1576091160550-2173dba999ef" 
+                    alt="Vietnamese food market" 
+                    className="rounded-lg shadow-xl w-full h-auto object-cover aspect-[4/3]"
+                  />
+                </div>
+                <div className="space-y-6">
+                  <div className="border-l-4 border-green-500 pl-4">
+                    <h3 className="text-xl font-semibold mb-2">Sự chuyển dịch về nhận thức sức khỏe</h3>
+                    <p className="text-slate-600">
+                      Người tiêu dùng Việt Nam ngày càng quan tâm đến sức khỏe và dinh dưỡng, 
+                      nhưng vẫn thiếu các công cụ hiệu quả để quản lý chế độ ăn uống.
+                    </p>
+                  </div>
+                  
+                  <div className="border-l-4 border-blue-500 pl-4">
+                    <h3 className="text-xl font-semibold mb-2">Gia tăng các bệnh liên quan đến lối sống</h3>
+                    <p className="text-slate-600">
+                      Việt Nam đang đối mặt với sự gia tăng nhanh chóng của các bệnh không lây nhiễm như 
+                      tiểu đường, béo phì và tim mạch, đòi hỏi các giải pháp dự phòng hiệu quả.
+                    </p>
+                  </div>
+                  
+                  <div className="border-l-4 border-yellow-500 pl-4">
+                    <h3 className="text-xl font-semibold mb-2">Thiếu hụt giải pháp công nghệ bản địa</h3>
+                    <p className="text-slate-600">
+                      Các ứng dụng dinh dưỡng hiện có trên thị trường chủ yếu là của nước ngoài, 
+                      không tối ưu hóa cho văn hóa ẩm thực và thói quen ăn uống của người Việt.
+                    </p>
+                  </div>
+                  
+                  <div className="border-l-4 border-purple-500 pl-4">
+                    <h3 className="text-xl font-semibold mb-2">Nhu cầu cá nhân hóa cao</h3>
+                    <p className="text-slate-600">
+                      Mỗi cơ thể có nhu cầu dinh dưỡng khác nhau, và người tiêu dùng đang tìm kiếm 
+                      các giải pháp được điều chỉnh riêng cho tình trạng sức khỏe cá nhân.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
