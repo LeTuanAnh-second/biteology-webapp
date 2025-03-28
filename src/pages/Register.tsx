@@ -56,6 +56,7 @@ const Register = () => {
     setError(null);
     setIsGoogleLoading(true);
     try {
+      // Cập nhật thêm redirectTo để đảm bảo URL chuyển hướng đúng
       const result = await signInWithGoogle();
       if (result.error) {
         console.error("Google sign in error:", result.error);

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -23,23 +22,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Đặt thời gian cho phiên đăng nhập là 1 ngày (86400 giây)
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        // Khi đăng nhập thành công, thiết lập thời gian hết hạn
         const expiryTime = new Date();
-        expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+        expiryTime.setDate(expiryTime.getDate() + 1);
         localStorage.setItem('session_expiry', expiryTime.toISOString());
       }
     });
 
-    // Kiểm tra phiên đăng nhập đã hết hạn chưa
     const checkSessionExpiry = () => {
       const expiryTimeStr = localStorage.getItem('session_expiry');
       if (expiryTimeStr) {
         const expiryTime = new Date(expiryTimeStr);
         if (new Date() > expiryTime) {
-          // Phiên đăng nhập đã hết hạn, đăng xuất người dùng
           supabase.auth.signOut().then(() => {
             localStorage.removeItem('session_expiry');
             setUser(null);
@@ -54,26 +49,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Kiểm tra định kỳ mỗi phút để xem phiên đăng nhập đã hết hạn chưa
     const intervalId = setInterval(checkSessionExpiry, 60000);
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      
-      // Nếu có session nhưng không có thời gian hết hạn, đặt thời gian hết hạn
+
       if (session && !localStorage.getItem('session_expiry')) {
         const expiryTime = new Date();
-        expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+        expiryTime.setDate(expiryTime.getDate() + 1);
         localStorage.setItem('session_expiry', expiryTime.toISOString());
       }
-      
-      // Kiểm tra ngay khi khởi động
+
       checkSessionExpiry();
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -92,12 +82,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password,
       });
-      
+
       if (error) throw error;
 
-      // Thiết lập thời gian hết hạn khi đăng nhập thành công
       const expiryTime = new Date();
-      expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+      expiryTime.setDate(expiryTime.getDate() + 1);
       localStorage.setItem('session_expiry', expiryTime.toISOString());
 
       toast({
@@ -124,9 +113,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (error) throw error;
 
-      // Thiết lập thời gian hết hạn khi đăng ký thành công
       const expiryTime = new Date();
-      expiryTime.setDate(expiryTime.getDate() + 1); // Thêm 1 ngày
+      expiryTime.setDate(expiryTime.getDate() + 1);
       localStorage.setItem('session_expiry', expiryTime.toISOString());
 
       toast({
@@ -146,25 +134,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
+      const baseUrl = window.location.origin;
+      console.log("Current base URL:", baseUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: `${baseUrl}/register`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
       });
       
       if (error) throw error;
       
-      // Toast không được hiển thị ngay vì người dùng sẽ được chuyển hướng đến trang Google
-      // Thông báo thành công sẽ được hiển thị khi người dùng quay lại (thông qua onAuthStateChange)
-      
       return { error: undefined };
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Đăng nhập với Google thất bại",
-        description: error.message
-      });
+      console.error("Google sign in error:", error);
       return { error };
     }
   };
@@ -174,7 +162,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
-      // Xóa thời gian hết hạn khi đăng xuất
       localStorage.removeItem('session_expiry');
 
       toast({
