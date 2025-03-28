@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Mail, Lock } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -10,25 +11,46 @@ const Login = () => {
   const { signIn, signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
     try {
       await signIn(email, password);
-    } catch (error) {
+      toast({
+        title: "Đăng nhập thành công",
+        description: "Chào mừng bạn đã quay trở lại!",
+      });
+    } catch (error: any) {
       console.error(error);
+      setError(error.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin đăng nhập.");
+      toast({
+        variant: "destructive",
+        title: "Đăng nhập thất bại",
+        description: error.message || "Vui lòng kiểm tra lại thông tin đăng nhập của bạn.",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    setError(null);
     setIsGoogleLoading(true);
     try {
       await signInWithGoogle();
-    } catch (error) {
-      console.error(error);
+      // Không cần toast ở đây vì người dùng sẽ được chuyển hướng đến trang Google
+    } catch (error: any) {
+      console.error("Google sign in error:", error);
+      setError(error.message || "Đăng nhập với Google thất bại.");
+      toast({
+        variant: "destructive",
+        title: "Đăng nhập với Google thất bại",
+        description: error.message || "Có lỗi xảy ra khi đăng nhập với Google.",
+      });
     } finally {
       setIsGoogleLoading(false);
     }
@@ -59,6 +81,11 @@ const Login = () => {
               Nhập email và mật khẩu của bạn để đăng nhập
             </p>
           </div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <span className="block sm:inline">{error}</span>
+            </div>
+          )}
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div className="relative">
@@ -101,7 +128,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
               </button>
@@ -118,7 +145,7 @@ const Login = () => {
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={isGoogleLoading}
-                className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 mr-2" />
                 {isGoogleLoading ? 'Đang đăng nhập...' : 'Đăng nhập với Google'}
