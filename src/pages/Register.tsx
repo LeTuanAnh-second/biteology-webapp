@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,11 +55,10 @@ const Register = () => {
     setError(null);
     setIsGoogleLoading(true);
     try {
-      // Cập nhật thêm redirectTo để đảm bảo URL chuyển hướng đúng
       const result = await signInWithGoogle();
       if (result.error) {
         console.error("Google sign in error:", result.error);
-        let errorMessage = "Đăng ký với Google thất bại.";
+        let errorMessage = "Đăng nhập với Google thất bại.";
         
         if (result.error.message) {
           if (result.error.message.includes("popup_closed_by_user")) {
