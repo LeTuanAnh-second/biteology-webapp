@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +70,8 @@ const Register = () => {
             errorMessage = "Bạn đã từ chối cấp quyền cho ứng dụng.";
           } else if (result.error.message.includes("popup_blocked")) {
             errorMessage = "Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép cửa sổ bật lên và thử lại.";
+          } else if (result.error.message.includes("org_internal")) {
+            errorMessage = "Tài khoản Google của bạn bị hạn chế bởi tổ chức. Vui lòng sử dụng tài khoản Google cá nhân.";
           } else {
             errorMessage = result.error.message;
           }
@@ -177,7 +180,7 @@ const Register = () => {
                 className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 mr-2" />
-                {isGoogleLoading ? 'Đang đăng nhập...' : 'Đăng ký với Google'}
+                {isGoogleLoading ? 'Đang đăng nhập...' : 'Đăng ký với tài khoản Google cá nhân'}
               </button>
             </div>
 
