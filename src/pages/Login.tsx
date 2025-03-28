@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,34 +53,32 @@ const Login = () => {
     setError(null);
     setIsGoogleLoading(true);
     try {
-      const { error } = await signInWithGoogle();
-      if (error) throw error;
-      
-      // Đăng nhập với Google thành công, chuyển hướng được xử lý trong AuthContext
-    } catch (error: any) {
-      console.error("Google sign in error:", error);
-      let errorMessage = "Đăng nhập với Google thất bại.";
-      
-      if (error.message) {
-        if (error.message.includes("popup_closed_by_user")) {
-          errorMessage = "Cửa sổ đăng nhập Google đã bị đóng. Vui lòng thử lại.";
-        } else if (error.message.includes("redirect_uri_mismatch")) {
-          errorMessage = "Lỗi cấu hình URI chuyển hướng. Vui lòng liên hệ quản trị viên.";
-        } else if (error.message.includes("access_denied")) {
-          errorMessage = "Bạn đã từ chối cấp quyền cho ứng dụng.";
-        } else if (error.message.includes("popup_blocked")) {
-          errorMessage = "Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép cửa sổ bật lên và thử lại.";
-        } else {
-          errorMessage = error.message;
+      const result = await signInWithGoogle();
+      if (result.error) {
+        console.error("Google sign in error:", result.error);
+        let errorMessage = "Đăng nhập với Google thất bại.";
+        
+        if (result.error.message) {
+          if (result.error.message.includes("popup_closed_by_user")) {
+            errorMessage = "Cửa sổ đăng nhập Google đã bị đóng. Vui lòng thử lại.";
+          } else if (result.error.message.includes("redirect_uri_mismatch")) {
+            errorMessage = "Lỗi cấu hình URI chuyển hướng. Vui lòng liên hệ quản trị viên.";
+          } else if (result.error.message.includes("access_denied")) {
+            errorMessage = "Bạn đã từ chối cấp quyền cho ứng dụng.";
+          } else if (result.error.message.includes("popup_blocked")) {
+            errorMessage = "Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép cửa sổ bật lên và thử lại.";
+          } else {
+            errorMessage = result.error.message;
+          }
         }
+        
+        setError(errorMessage);
+        toast({
+          variant: "destructive",
+          title: "Đăng nhập với Google thất bại",
+          description: errorMessage,
+        });
       }
-      
-      setError(errorMessage);
-      toast({
-        variant: "destructive",
-        title: "Đăng nhập với Google thất bại",
-        description: errorMessage,
-      });
     } finally {
       setIsGoogleLoading(false);
     }
@@ -89,7 +86,6 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Green background with welcome message */}
       <div className="hidden lg:flex lg:w-1/2 bg-primary items-center justify-center p-12">
         <div className="max-w-lg">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
@@ -101,7 +97,6 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right side - Login form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">

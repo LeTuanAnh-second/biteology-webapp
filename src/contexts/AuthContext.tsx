@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<{ error?: Error }>;
   logout: () => Promise<void>;
 }
 
@@ -157,13 +157,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Toast không được hiển thị ngay vì người dùng sẽ được chuyển hướng đến trang Google
       // Thông báo thành công sẽ được hiển thị khi người dùng quay lại (thông qua onAuthStateChange)
+      
+      return { error: undefined };
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Đăng nhập với Google thất bại",
         description: error.message
       });
-      throw error;
+      return { error };
     }
   };
 
