@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 const Login = () => {
@@ -13,6 +13,7 @@ const Login = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,12 +26,24 @@ const Login = () => {
         description: "Chào mừng bạn đã quay trở lại!",
       });
     } catch (error: any) {
-      console.error(error);
-      setError(error.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin đăng nhập.");
+      console.error("Đăng nhập thất bại:", error);
+      let errorMessage = "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin đăng nhập.";
+      
+      if (error.message) {
+        if (error.message.includes("Invalid login credentials")) {
+          errorMessage = "Email hoặc mật khẩu không chính xác.";
+        } else if (error.message.includes("Email not confirmed")) {
+          errorMessage = "Email chưa được xác nhận. Vui lòng kiểm tra hộp thư để xác nhận email.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Đăng nhập thất bại",
-        description: error.message || "Vui lòng kiểm tra lại thông tin đăng nhập của bạn.",
+        description: errorMessage,
       });
     } finally {
       setIsLoading(false);
@@ -41,15 +54,33 @@ const Login = () => {
     setError(null);
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
-      // Không cần toast ở đây vì người dùng sẽ được chuyển hướng đến trang Google
+      const { error } = await signInWithGoogle();
+      if (error) throw error;
+      
+      // Đăng nhập với Google thành công, chuyển hướng được xử lý trong AuthContext
     } catch (error: any) {
       console.error("Google sign in error:", error);
-      setError(error.message || "Đăng nhập với Google thất bại.");
+      let errorMessage = "Đăng nhập với Google thất bại.";
+      
+      if (error.message) {
+        if (error.message.includes("popup_closed_by_user")) {
+          errorMessage = "Cửa sổ đăng nhập Google đã bị đóng. Vui lòng thử lại.";
+        } else if (error.message.includes("redirect_uri_mismatch")) {
+          errorMessage = "Lỗi cấu hình URI chuyển hướng. Vui lòng liên hệ quản trị viên.";
+        } else if (error.message.includes("access_denied")) {
+          errorMessage = "Bạn đã từ chối cấp quyền cho ứng dụng.";
+        } else if (error.message.includes("popup_blocked")) {
+          errorMessage = "Trình duyệt đã chặn cửa sổ bật lên. Vui lòng cho phép cửa sổ bật lên và thử lại.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Đăng nhập với Google thất bại",
-        description: error.message || "Có lỗi xảy ra khi đăng nhập với Google.",
+        description: errorMessage,
       });
     } finally {
       setIsGoogleLoading(false);
@@ -82,8 +113,9 @@ const Login = () => {
             </p>
           </div>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <span className="block sm:inline">{error}</span>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg relative flex items-center" role="alert">
+              <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+              <span className="block">{error}</span>
             </div>
           )}
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
