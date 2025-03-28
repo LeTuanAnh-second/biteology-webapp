@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -134,13 +135,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      const baseUrl = window.location.origin;
-      console.log("Current base URL:", baseUrl);
+      // Sử dụng window.location.href thay vì window.location.origin
+      // để có URL đầy đủ bao gồm cả đường dẫn hiện tại
+      const currentUrl = window.location.href;
+      const deployUrl = import.meta.env.VITE_APP_URL || currentUrl;
+      console.log("Current URL:", currentUrl);
+      console.log("Deploy URL to use:", deployUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${baseUrl}/register`,
+          // Sử dụng URL đầy đủ thay vì chỉ origin
+          redirectTo: deployUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
