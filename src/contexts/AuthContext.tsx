@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -103,7 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Đăng nhập thành công",
         description: "Chào mừng bạn đã quay trở lại!"
       });
-      navigate('/'); // Changed from '/dashboard' to '/'
+      navigate('/');
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -143,6 +144,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Toast không được hiển thị ngay vì người dùng sẽ được chuyển hướng đến trang Google
+      // Thông báo thành công sẽ được hiển thị khi người dùng quay lại (thông qua onAuthStateChange)
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Đăng nhập với Google thất bại",
+        description: error.message
+      });
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut();
@@ -166,7 +190,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, logout }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

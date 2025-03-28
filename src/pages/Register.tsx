@@ -7,8 +7,9 @@ import { Mail, Lock } from 'lucide-react';
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,6 +20,17 @@ const Register = () => {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -92,6 +104,24 @@ const Register = () => {
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               >
                 {isLoading ? 'Đang đăng ký...' : 'Đăng ký'}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center">
+              <div className="w-full border-t border-gray-300"></div>
+              <div className="px-3 text-sm text-gray-500">hoặc</div>
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={isGoogleLoading}
+                className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 mr-2" />
+                {isGoogleLoading ? 'Đang đăng nhập...' : 'Đăng ký với Google'}
               </button>
             </div>
 
