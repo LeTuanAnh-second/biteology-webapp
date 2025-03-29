@@ -1,5 +1,5 @@
 
-import { Activity, Heart, Library } from "lucide-react";
+import { Activity, Calendar, Heart, Library } from "lucide-react";
 import { Link } from "react-router-dom";
 import FeatureCard from "./FeatureCard";
 
@@ -25,6 +25,13 @@ const FeaturesSection = () => {
       icon: Library,
       image: "https://images.unsplash.com/photo-1490645935967-10de6ba17061",
       link: "/knowledge-base"
+    },
+    {
+      title: "Tư vấn chuyên gia",
+      description: "Đặt lịch tư vấn trực tiếp với các chuyên gia dinh dưỡng hàng đầu.",
+      icon: Calendar,
+      image: "https://images.unsplash.com/photo-1576091160550-2173dba999ef",
+      link: "/expert-consultation"
     }
   ];
 
@@ -38,7 +45,7 @@ const FeaturesSection = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
             <FeatureCard 
               key={index}
