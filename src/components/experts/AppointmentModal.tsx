@@ -85,7 +85,7 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
         <DialogHeader>
           <DialogTitle>Đặt lịch hẹn với {expert.name}</DialogTitle>
           <DialogDescription>
-            Chuyên gia {expert.specialization} với {expert.age} tuổi kinh nghiệm
+            Chuyên gia {expert.specialization} với nhiều năm kinh nghiệm
           </DialogDescription>
         </DialogHeader>
 
@@ -102,7 +102,7 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
                 today.setHours(0, 0, 0, 0);
                 return date < today || date.getDay() === 0 || date.getDay() === 6;
               }}
-              className="border rounded-md"
+              className="border rounded-md pointer-events-auto"
             />
           </div>
 

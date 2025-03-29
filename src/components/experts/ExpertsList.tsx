@@ -36,7 +36,7 @@ const ExpertsList = ({ onSchedule }: ExpertsListProps) => {
     <div className="grid md:grid-cols-2 gap-8">
       {experts.map((expert) => (
         <Card key={expert.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-          <CardContent>
+          <CardContent className="p-0">
             <div className="flex flex-col md:flex-row">
               <div className="md:w-1/3">
                 <img 
