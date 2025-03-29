@@ -39,6 +39,15 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
       return;
     }
 
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Bạn cần đăng nhập",
+        description: "Vui lòng đăng nhập để đặt lịch tư vấn",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

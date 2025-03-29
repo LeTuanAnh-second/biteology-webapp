@@ -59,8 +59,8 @@ serve(async (req) => {
     const userName = profileData?.full_name || "Người dùng";
     
     // Create email content for the expert
-    const emailSubject = `Yêu cầu tư vấn từ ${userName} - B!teology`;
-    const emailContent = `
+    const expertEmailSubject = `Yêu cầu tư vấn từ ${userName} - B!teology`;
+    const expertEmailContent = `
       <h1>Xin chào ${expertName},</h1>
       <p>Bạn có một yêu cầu tư vấn mới từ ${userName} (${user.email}) thông qua nền tảng B!teology.</p>
       <h2>Chi tiết cuộc hẹn:</h2>
@@ -73,12 +73,14 @@ serve(async (req) => {
       <p>Trân trọng,<br>Đội ngũ B!teology</p>
     `;
 
+    console.log(`Sending email to expert: ${expertEmail}`);
+    
     // Send email to expert using Resend
     const { data: expertEmailData, error: expertEmailError } = await resend.emails.send({
       from: "Biteology <no-reply@biteology.com>",
       to: expertEmail,
-      subject: emailSubject,
-      html: emailContent,
+      subject: expertEmailSubject,
+      html: expertEmailContent,
     });
 
     if (expertEmailError) {
@@ -104,6 +106,8 @@ serve(async (req) => {
       <p>Trân trọng,<br>Đội ngũ B!teology</p>
     `;
 
+    console.log(`Sending confirmation email to user: ${user.email}`);
+    
     const { data: userEmailData, error: userEmailError } = await resend.emails.send({
       from: "Biteology <no-reply@biteology.com>",
       to: user.email,
