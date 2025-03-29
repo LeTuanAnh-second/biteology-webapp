@@ -1,7 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
-import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,12 +23,10 @@ serve(async (req) => {
   }
 
   try {
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: AppointmentDetails = await req.json();
     const { expertName, expertEmail, date, time, reason } = body;
@@ -75,20 +72,31 @@ serve(async (req) => {
 
     console.log(`Sending email to expert: ${expertEmail}`);
     
-    // Send email to expert using Resend
-    const { data: expertEmailData, error: expertEmailError } = await resend.emails.send({
-      from: "Biteology <no-reply@biteology.com>",
-      to: expertEmail,
-      subject: expertEmailSubject,
-      html: expertEmailContent,
+    // Send email to expert using Supabase SMTP
+    const expertEmailResponse = await fetch(`${supabaseUrl}/auth/v1/admin/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supabaseServiceKey,
+      },
+      body: JSON.stringify({
+        email: expertEmail,
+        subject: expertEmailSubject,
+        template_data: {
+          html_body: expertEmailContent,
+        },
+        email_template: "custom",
+        email_from: "Biteology <anhltse170584@fpt.edu.vn>",
+      }),
     });
 
-    if (expertEmailError) {
-      console.error("Error sending email to expert:", expertEmailError);
-      throw new Error(`Failed to send email to expert: ${expertEmailError.message}`);
+    if (!expertEmailResponse.ok) {
+      const errorData = await expertEmailResponse.text();
+      console.error("Error sending email to expert:", errorData);
+      throw new Error(`Failed to send email to expert: ${errorData}`);
     }
 
-    console.log("Email sent to expert successfully:", expertEmailData);
+    console.log("Email sent to expert successfully:", await expertEmailResponse.json());
 
     // Send confirmation email to user
     const userEmailSubject = `Xác nhận đặt lịch tư vấn - B!teology`;
@@ -108,19 +116,30 @@ serve(async (req) => {
 
     console.log(`Sending confirmation email to user: ${user.email}`);
     
-    const { data: userEmailData, error: userEmailError } = await resend.emails.send({
-      from: "Biteology <no-reply@biteology.com>",
-      to: user.email,
-      subject: userEmailSubject,
-      html: userEmailContent,
+    const userEmailResponse = await fetch(`${supabaseUrl}/auth/v1/admin/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": supabaseServiceKey,
+      },
+      body: JSON.stringify({
+        email: user.email,
+        subject: userEmailSubject,
+        template_data: {
+          html_body: userEmailContent,
+        },
+        email_template: "custom",
+        email_from: "Biteology <anhltse170584@fpt.edu.vn>",
+      }),
     });
 
-    if (userEmailError) {
-      console.error("Error sending email to user:", userEmailError);
-      throw new Error(`Failed to send confirmation email to user: ${userEmailError.message}`);
+    if (!userEmailResponse.ok) {
+      const errorData = await userEmailResponse.text();
+      console.error("Error sending email to user:", errorData);
+      throw new Error(`Failed to send confirmation email to user: ${errorData}`);
     }
 
-    console.log("Email sent to user successfully:", userEmailData);
+    console.log("Email sent to user successfully:", await userEmailResponse.json());
 
     return new Response(
       JSON.stringify({ success: true }),

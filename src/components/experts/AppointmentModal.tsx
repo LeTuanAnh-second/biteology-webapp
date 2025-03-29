@@ -63,11 +63,18 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
       };
 
       // Call the Supabase Edge Function to send the email
-      const { error } = await supabase.functions.invoke("send-appointment-email", {
+      const { data, error } = await supabase.functions.invoke("send-appointment-email", {
         body: appointmentDetails
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error invoking edge function:", error);
+        throw new Error(`Lỗi khi gửi thông tin đặt lịch: ${error.message}`);
+      }
+
+      if (!data?.success) {
+        throw new Error("Không thể gửi thông tin đặt lịch, vui lòng thử lại sau.");
+      }
 
       toast({
         title: "Đặt lịch thành công!",
@@ -83,7 +90,7 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
       toast({
         variant: "destructive",
         title: "Đặt lịch thất bại",
-        description: "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau.",
+        description: error instanceof Error ? error.message : "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau.",
       });
     } finally {
       setIsSubmitting(false);

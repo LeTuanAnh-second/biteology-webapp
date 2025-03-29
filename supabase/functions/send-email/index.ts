@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
     const { to, subject, html, from } = await req.json();
 
     if (!to || !subject || !html) {
@@ -22,21 +20,33 @@ serve(async (req) => {
     }
 
     console.log(`Sending email to ${to} with subject "${subject}"`);
-    console.log(`From: ${from || "Biteology <no-reply@biteology.com>"}`);
+    console.log(`From: ${from || "Biteology <anhltse170584@fpt.edu.vn>"}`);
 
-    // Use Resend to send the email
-    const { data, error } = await resend.emails.send({
-      from: from || "Biteology <no-reply@biteology.com>",
-      to: [to],
-      subject: subject,
-      html: html,
+    // Use Supabase's built-in SMTP for sending emails
+    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/send-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+      },
+      body: JSON.stringify({
+        email: to,
+        subject: subject,
+        template_data: {
+          html_body: html,
+        },
+        email_template: "custom",
+        email_from: from || "Biteology <anhltse170584@fpt.edu.vn>",
+      }),
     });
 
-    if (error) {
-      console.error("Resend API error:", error);
-      throw new Error(`Failed to send email: ${error.message}`);
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error("Supabase SMTP API error:", errorData);
+      throw new Error(`Failed to send email: ${errorData}`);
     }
 
+    const data = await response.json();
     console.log("Email sent successfully:", data);
     
     return new Response(
