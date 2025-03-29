@@ -22,6 +22,10 @@ serve(async (req) => {
       throw new Error("Missing required fields: to, subject, or html");
     }
 
+    console.log(`Would send email to ${to} with subject "${subject}"`);
+    console.log(`From: ${from || "Biteology <no-reply@biteology.com>"}`);
+    console.log(`Content: ${html}`);
+
     // Use Resend to send the email
     const { data, error } = await resend.emails.send({
       from: from || "Biteology <no-reply@biteology.com>",

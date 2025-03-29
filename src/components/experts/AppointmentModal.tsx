@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AppointmentModalProps {
   expert: Expert;
@@ -26,6 +27,7 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleSubmit = async () => {
     if (!date || !time) {
