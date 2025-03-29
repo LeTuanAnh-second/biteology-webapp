@@ -1,5 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,17 +22,23 @@ serve(async (req) => {
       throw new Error("Missing required fields: to, subject, or html");
     }
 
-    // This is a placeholder for actual email sending logic
-    // In a real implementation, you would use a service like Resend, SendGrid, or similar
-    console.log(`Would send email to ${to} with subject "${subject}"`);
-    console.log(`From: ${from || "no-reply@biteology.com"}`);
-    console.log(`Content: ${html}`);
+    // Use Resend to send the email
+    const { data, error } = await resend.emails.send({
+      from: from || "Biteology <no-reply@biteology.com>",
+      to: [to],
+      subject: subject,
+      html: html,
+    });
 
-    // For demonstration purposes, we'll simulate successful email sending
-    // In production, replace this with actual email sending code
+    if (error) {
+      console.error("Resend API error:", error);
+      throw new Error(`Failed to send email: ${error.message}`);
+    }
+
+    console.log("Email sent successfully:", data);
     
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, data }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
         status: 200,

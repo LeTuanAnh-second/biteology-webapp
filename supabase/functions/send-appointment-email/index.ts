@@ -70,17 +70,42 @@ serve(async (req) => {
       <p>Trân trọng,<br>Đội ngũ B!teology</p>
     `;
 
-    // Send email using Supabase Email service (via an Edge Function)
+    // Send email using the send-email Edge Function
     const { error: emailError } = await supabaseClient.functions.invoke("send-email", {
       body: {
         to: expertEmail,
         subject: emailSubject,
         html: emailContent,
-        from: "no-reply@biteology.com"
+        from: "Biteology <no-reply@biteology.com>"
       }
     });
 
     if (emailError) throw emailError;
+
+    // Send confirmation email to user
+    const userEmailSubject = `Xác nhận đặt lịch tư vấn - B!teology`;
+    const userEmailContent = `
+      <h1>Xin chào ${userName},</h1>
+      <p>Cảm ơn bạn đã đặt lịch tư vấn với chuyên gia ${expertName} của B!teology.</p>
+      <h2>Chi tiết cuộc hẹn:</h2>
+      <ul>
+        <li><strong>Chuyên gia:</strong> ${expertName}</li>
+        <li><strong>Ngày:</strong> ${date}</li>
+        <li><strong>Giờ:</strong> ${time}</li>
+        <li><strong>Lý do tư vấn:</strong> ${reason}</li>
+      </ul>
+      <p>Chuyên gia sẽ liên hệ với bạn sớm để xác nhận lịch hẹn. Nếu bạn cần thay đổi lịch hẹn, vui lòng liên hệ với chúng tôi.</p>
+      <p>Trân trọng,<br>Đội ngũ B!teology</p>
+    `;
+
+    await supabaseClient.functions.invoke("send-email", {
+      body: {
+        to: user.email,
+        subject: userEmailSubject,
+        html: userEmailContent,
+        from: "Biteology <no-reply@biteology.com>"
+      }
+    });
 
     return new Response(
       JSON.stringify({ success: true }),
