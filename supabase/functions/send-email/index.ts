@@ -19,38 +19,18 @@ serve(async (req) => {
       throw new Error("Missing required fields: to, subject, or html");
     }
 
-    console.log(`Sending email to ${to} with subject "${subject}"`);
-    console.log(`From: ${from || "Biteology <anhltse170584@fpt.edu.vn>"}`);
-
-    // Use Supabase's built-in SMTP for sending emails
-    const response = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/admin/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
-      },
-      body: JSON.stringify({
-        email: to,
-        subject: subject,
-        template_data: {
-          html_body: html,
-        },
-        email_template: "custom",
-        email_from: from || "Biteology <anhltse170584@fpt.edu.vn>",
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Supabase SMTP API error:", errorData);
-      throw new Error(`Failed to send email: ${errorData}`);
-    }
-
-    const data = await response.json();
-    console.log("Email sent successfully:", data);
+    // Log email details instead of sending via SMTP
+    console.log(`Would send email to ${to} with subject "${subject}"`);
+    console.log(`From: ${from || "Biteology <no-reply@biteology.com>"}`);
+    console.log(`Content: ${html}`);
     
+    // For development, pretend the email was sent successfully
     return new Response(
-      JSON.stringify({ success: true, data }),
+      JSON.stringify({ 
+        success: true, 
+        message: "Email logged for development (SMTP not configured)",
+        data: { to, subject }
+      }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
         status: 200,

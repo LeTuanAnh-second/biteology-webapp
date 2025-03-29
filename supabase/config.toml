@@ -41,3 +41,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.zalopay-check-subscription]
 verify_jwt = false
+[functions.send-email]
+verify_jwt = false
+[functions.send-appointment-email]
+verify_jwt = false

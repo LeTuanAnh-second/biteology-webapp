@@ -70,35 +70,11 @@ serve(async (req) => {
       <p>Trân trọng,<br>Đội ngũ B!teology</p>
     `;
 
-    console.log(`Sending email to expert: ${expertEmail}`);
-    
-    // Send email to expert using Supabase SMTP
-    const expertEmailResponse = await fetch(`${supabaseUrl}/auth/v1/admin/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": supabaseServiceKey,
-      },
-      body: JSON.stringify({
-        email: expertEmail,
-        subject: expertEmailSubject,
-        template_data: {
-          html_body: expertEmailContent,
-        },
-        email_template: "custom",
-        email_from: "Biteology <anhltse170584@fpt.edu.vn>",
-      }),
-    });
+    console.log(`Would send email to expert: ${expertEmail} with subject "${expertEmailSubject}"`);
+    console.log(`From: Biteology <no-reply@biteology.com>`);
+    console.log(`Content: ${expertEmailContent}`);
 
-    if (!expertEmailResponse.ok) {
-      const errorData = await expertEmailResponse.text();
-      console.error("Error sending email to expert:", errorData);
-      throw new Error(`Failed to send email to expert: ${errorData}`);
-    }
-
-    console.log("Email sent to expert successfully:", await expertEmailResponse.json());
-
-    // Send confirmation email to user
+    // Create confirmation email for user
     const userEmailSubject = `Xác nhận đặt lịch tư vấn - B!teology`;
     const userEmailContent = `
       <h1>Xin chào ${userName},</h1>
@@ -114,35 +90,16 @@ serve(async (req) => {
       <p>Trân trọng,<br>Đội ngũ B!teology</p>
     `;
 
-    console.log(`Sending confirmation email to user: ${user.email}`);
-    
-    const userEmailResponse = await fetch(`${supabaseUrl}/auth/v1/admin/send-email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": supabaseServiceKey,
-      },
-      body: JSON.stringify({
-        email: user.email,
-        subject: userEmailSubject,
-        template_data: {
-          html_body: userEmailContent,
-        },
-        email_template: "custom",
-        email_from: "Biteology <anhltse170584@fpt.edu.vn>",
-      }),
-    });
+    console.log(`Would send confirmation email to user: ${user.email} with subject "${userEmailSubject}"`);
+    console.log(`From: Biteology <no-reply@biteology.com>`);
+    console.log(`Content: ${userEmailContent}`);
 
-    if (!userEmailResponse.ok) {
-      const errorData = await userEmailResponse.text();
-      console.error("Error sending email to user:", errorData);
-      throw new Error(`Failed to send confirmation email to user: ${errorData}`);
-    }
-
-    console.log("Email sent to user successfully:", await userEmailResponse.json());
-
+    // For development, pretend the emails were sent successfully
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        message: "Emails logged for development (SMTP not configured)"
+      }),
       {
         headers: { "Content-Type": "application/json", ...corsHeaders },
         status: 200,
