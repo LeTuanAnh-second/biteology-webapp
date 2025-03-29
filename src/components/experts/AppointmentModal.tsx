@@ -79,6 +79,18 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
     }
   };
 
+  const isWeekend = (date: Date) => {
+    const day = date.getDay();
+    // 0 is Sunday, 6 is Saturday
+    return day === 0 || day === 6;
+  };
+
+  const isPastDate = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
@@ -96,13 +108,9 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
               mode="single"
               selected={date}
               onSelect={setDate}
-              disabled={(date) => {
-                // Disable weekends and past dates
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                return date < today || date.getDay() === 0 || date.getDay() === 6;
-              }}
+              disabled={(date) => isWeekend(date) || isPastDate(date)}
               className="border rounded-md pointer-events-auto"
+              initialFocus
             />
           </div>
 
