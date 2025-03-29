@@ -36,42 +36,43 @@ const ExpertsList = ({ onSchedule }: ExpertsListProps) => {
     <div className="grid md:grid-cols-2 gap-8">
       {experts.map((expert) => (
         <Card key={expert.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-          <div className="flex flex-col md:flex-row">
-            <div className="md:w-1/3">
-              <img 
-                src={expert.avatar} 
-                alt={expert.name} 
-                className="w-full h-full object-cover aspect-square"
-              />
-            </div>
-            <div className="md:w-2/3 p-6">
-              <h3 className="text-xl font-semibold mb-1">{expert.name}</h3>
-              <p className="text-green-600 font-medium mb-3">Chuyên gia {expert.specialization}</p>
-              
-              <div className="space-y-2 mb-4 text-sm text-slate-700">
-                <div className="flex items-center">
-                  <User className="h-4 w-4 mr-2 text-slate-400" />
-                  <span>{expert.age} tuổi</span>
-                </div>
-                <div className="flex items-center">
-                  <Mail className="h-4 w-4 mr-2 text-slate-400" />
-                  <span>{expert.email}</span>
-                </div>
+          <CardContent>
+            <div className="flex flex-col md:flex-row">
+              <div className="md:w-1/3">
+                <img 
+                  src={expert.avatar} 
+                  alt={expert.name} 
+                  className="w-full h-full object-cover aspect-square"
+                />
               </div>
-              
-              <p className="text-slate-600 text-sm mb-4 line-clamp-2">{expert.experience}</p>
-              
-              <Button 
-                onClick={() => onSchedule(expert)} 
-                className="w-full flex items-center justify-center"
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Đặt lịch hẹn
-              </Button>
+              <div className="md:w-2/3 p-6">
+                <h3 className="text-xl font-semibold mb-1">{expert.name}</h3>
+                <p className="text-green-600 font-medium mb-3">Chuyên gia {expert.specialization}</p>
+                
+                <div className="space-y-2 mb-4 text-sm text-slate-700">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2 text-slate-400" />
+                    <span>{expert.age} tuổi</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-slate-400" />
+                    <span>{expert.email}</span>
+                  </div>
+                </div>
+                
+                <p className="text-slate-600 text-sm mb-4 line-clamp-2">{expert.experience}</p>
+                
+                <Button 
+                  onClick={() => onSchedule(expert)} 
+                  className="w-full flex items-center justify-center"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Đặt lịch hẹn
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
