@@ -40,36 +40,23 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
     setIsSubmitting(true);
 
     try {
-      // Get the user's profile to include their name in the notification
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("Bạn cần đăng nhập để đặt lịch hẹn");
-      }
-
       // Format the appointment details
       const appointmentDate = format(date, "dd/MM/yyyy", { locale: vi });
-      
-      // Instead of using the Edge Function, we'll use direct email approach
-      // This is a temporary solution to bypass the CORS issue
-      // In a production environment, we would fix the CORS headers in the Edge Function
       const appointmentDetails = {
         expertId: expert.id,
         expertName: expert.name,
         expertEmail: expert.email,
-        userName: user.user_metadata?.full_name || "Người dùng",
-        userEmail: user.email,
         date: appointmentDate,
         time,
         reason: reason.trim() || "Tư vấn dinh dưỡng"
       };
 
-      // For now, we'll simulate a successful appointment without actually sending an email
-      // In a production environment, this would call a properly configured Edge Function
-      console.log("Appointment details:", appointmentDetails);
-      
-      // Simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call the Supabase Edge Function to send the email
+      const { error } = await supabase.functions.invoke("send-appointment-email", {
+        body: appointmentDetails
+      });
+
+      if (error) throw error;
 
       toast({
         title: "Đặt lịch thành công!",

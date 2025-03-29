@@ -5,7 +5,6 @@ import Layout from '@/components/layout/Layout';
 import ExpertsList from '@/components/experts/ExpertsList';
 import AppointmentModal from '@/components/experts/AppointmentModal';
 import { Expert } from '@/types/expert';
-import { Toaster } from '@/components/ui/toaster';
 
 const ExpertConsultation = () => {
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
@@ -44,8 +43,6 @@ const ExpertConsultation = () => {
           onClose={() => setIsModalOpen(false)}
         />
       )}
-
-      <Toaster />
     </>
   );
 };
