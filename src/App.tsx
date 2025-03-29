@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import Premium from "./pages/Premium";
 import PaymentResult from "./pages/PaymentResult";
 import About from "./pages/About";
+import ExpertConsultation from "./pages/ExpertConsultation";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +78,14 @@ const App = () => (
               element={
                 <PrivateRoute>
                   <KnowledgeBase />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/expert-consultation"
+              element={
+                <PrivateRoute>
+                  <ExpertConsultation />
                 </PrivateRoute>
               }
             />
