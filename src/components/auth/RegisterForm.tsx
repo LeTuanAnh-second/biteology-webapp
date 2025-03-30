@@ -24,7 +24,7 @@ const RegisterForm = ({ onSuccess }: RegisterFormProps) => {
       await signUp(email, password);
       toast({
         title: "Đăng ký thành công",
-        description: "Tài khoản của bạn đã được tạo thành công."
+        description: "Vui lòng cập nhật thông tin cá nhân của bạn."
       });
       onSuccess();
     } catch (error: any) {

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +24,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
+        const checkUserProfile = async () => {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('full_name, phone_number')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (error || !profile || !profile.full_name || !profile.phone_number) {
+            navigate('/profile');
+          }
+        };
+        
+        checkUserProfile();
+        
         const expiryTime = new Date();
         expiryTime.setDate(expiryTime.getDate() + 1);
         localStorage.setItem('session_expiry', expiryTime.toISOString());
@@ -94,7 +107,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         title: "Đăng nhập thành công",
         description: "Chào mừng bạn đã quay trở lại!"
       });
-      navigate('/');
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, phone_number')
+        .eq('id', (await supabase.auth.getUser()).data.user?.id)
+        .single();
+        
+      if (profileError || !profile || !profile.full_name || !profile.phone_number) {
+        navigate('/profile');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -123,9 +147,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       toast({
         title: "Đăng ký thành công",
-        description: "Tài khoản của bạn đã được tạo"
+        description: "Vui lòng cập nhật thông tin cá nhân của bạn"
       });
-      navigate('/');
     } catch (error: any) {
       toast({
         variant: "destructive",

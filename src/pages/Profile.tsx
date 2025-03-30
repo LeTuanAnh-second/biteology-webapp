@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DiseaseCategory {
   id: number;
@@ -31,6 +32,7 @@ const Profile = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [categories, setCategories] = useState<DiseaseCategory[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -48,6 +50,8 @@ const Profile = () => {
         if (profile) {
           setFullName(profile.full_name || "");
           setPhoneNumber(profile.phone_number || "");
+          // If profile exists but no name or phone, consider it a new user
+          setIsNewUser(!profile.full_name || !profile.phone_number);
         }
 
         // Load categories
@@ -159,7 +163,16 @@ const Profile = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="max-w-xl mx-auto">
-          <h1 className="text-3xl font-bold mb-8">Cập nhật thông tin</h1>
+          <h1 className="text-3xl font-bold mb-4">Cập nhật thông tin</h1>
+          
+          {isNewUser && (
+            <Alert className="mb-6 border-yellow-200 bg-yellow-50">
+              <Info className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
+                Chào mừng bạn đến với Biteology! Vui lòng cập nhật thông tin cá nhân của bạn để tiếp tục sử dụng ứng dụng.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
@@ -170,6 +183,8 @@ const Profile = () => {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Nhập họ và tên của bạn"
+                required
+                className={isNewUser ? "border-primary" : ""}
               />
             </div>
 
@@ -181,6 +196,8 @@ const Profile = () => {
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 placeholder="Nhập số điện thoại của bạn"
+                required
+                className={isNewUser ? "border-primary" : ""}
               />
             </div>
 
@@ -220,4 +237,3 @@ const Profile = () => {
 };
 
 export default Profile;
-

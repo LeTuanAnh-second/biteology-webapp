@@ -11,7 +11,7 @@ const Register = () => {
   const navigate = useNavigate();
 
   const handleRegisterSuccess = () => {
-    navigate('/');
+    navigate('/profile');
   };
 
   return (
