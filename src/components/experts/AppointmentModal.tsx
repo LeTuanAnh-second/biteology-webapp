@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Expert } from "@/types/expert";
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -26,24 +25,19 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
   const [time, setTime] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
   const { user } = useAuth();
 
   const handleSubmit = async () => {
     if (!date || !time) {
-      toast({
-        variant: "destructive",
-        title: "Thông tin chưa đầy đủ",
-        description: "Vui lòng chọn ngày và giờ cho cuộc hẹn",
+      toast.error("Thông tin chưa đầy đủ", {
+        description: "Vui lòng chọn ngày và giờ cho cuộc hẹn"
       });
       return;
     }
 
     if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Bạn cần đăng nhập",
-        description: "Vui lòng đăng nhập để đặt lịch tư vấn",
+      toast.error("Bạn cần đăng nhập", {
+        description: "Vui lòng đăng nhập để đặt lịch tư vấn"
       });
       return;
     }
@@ -52,7 +46,7 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
 
     try {
       // Format the appointment details
-      const appointmentDate = format(date, "dd/MM/yyyy", { locale: vi });
+      const appointmentDate = format(date, "dd/MM/yyyy");
       const appointmentDetails = {
         expertId: expert.id,
         expertName: expert.name,
@@ -76,9 +70,8 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
         throw new Error("Không thể gửi thông tin đặt lịch, vui lòng thử lại sau.");
       }
 
-      toast({
-        title: "Đặt lịch thành công!",
-        description: `Lịch hẹn của bạn với ${expert.name} vào ngày ${appointmentDate} lúc ${time} đã được gửi. Chuyên gia sẽ xác nhận qua email.`,
+      toast.success("Đặt lịch thành công!", {
+        description: `Lịch hẹn của bạn với ${expert.name} vào ngày ${appointmentDate} lúc ${time} đã được gửi. Chuyên gia sẽ xác nhận qua email.`
       });
 
       onClose();
@@ -87,10 +80,8 @@ const AppointmentModal = ({ expert, isOpen, onClose }: AppointmentModalProps) =>
       setReason("");
     } catch (error) {
       console.error("Error sending appointment:", error);
-      toast({
-        variant: "destructive",
-        title: "Đặt lịch thất bại",
-        description: error instanceof Error ? error.message : "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau.",
+      toast.error("Đặt lịch thất bại", {
+        description: error instanceof Error ? error.message : "Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau."
       });
     } finally {
       setIsSubmitting(false);
