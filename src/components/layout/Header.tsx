@@ -1,5 +1,5 @@
 
-import { Calendar, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import ProfileMenu from "@/components/profile/ProfileMenu";
@@ -21,24 +21,6 @@ const Header = () => {
             <span className="text-xs text-slate-500 italic">Healthy Bites - Healthy Life</span>
           </div>
         </Link>
-        
-        {user && (
-          <div className="hidden md:flex items-center space-x-1">
-            <Link to="/health-tracking" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-green-600">
-              Theo dõi chỉ số
-            </Link>
-            <Link to="/nutrition-advice" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-green-600">
-              Tư vấn dinh dưỡng
-            </Link>
-            <Link to="/knowledge-base" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-green-600">
-              Thư viện kiến thức
-            </Link>
-            <Link to="/expert-consultation" className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-green-600 flex items-center">
-              <Calendar className="h-4 w-4 mr-1" />
-              Tư vấn chuyên gia
-            </Link>
-          </div>
-        )}
         
         <div className="flex items-center space-x-4">
           {user ? (
