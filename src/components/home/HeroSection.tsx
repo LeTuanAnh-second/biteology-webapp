@@ -43,7 +43,7 @@ const HeroSection = () => {
               {user ? (
                 <>
                   <Link to="/about" className="primary-button">
-                    Bắt đầu ngay
+                    Tìm hiểu về chúng tôi
                   </Link>
                   <Link to="/premium" className="flex items-center secondary-button">
                     <Sparkles className="h-4 w-4 mr-2 text-amber-500" />
