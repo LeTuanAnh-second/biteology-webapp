@@ -60,7 +60,7 @@ const App = () => (
             <Route
               path="/health-tracking"
               element={
-                <PrivateRoute>
+                <PrivateRoute requirePremium={true}>
                   <HealthTracking />
                 </PrivateRoute>
               }
@@ -68,7 +68,7 @@ const App = () => (
             <Route
               path="/nutrition-advice"
               element={
-                <PrivateRoute>
+                <PrivateRoute requirePremium={true}>
                   <NutritionAdvice />
                 </PrivateRoute>
               }
@@ -76,7 +76,7 @@ const App = () => (
             <Route
               path="/knowledge-base"
               element={
-                <PrivateRoute>
+                <PrivateRoute requirePremium={true}>
                   <KnowledgeBase />
                 </PrivateRoute>
               }
@@ -84,7 +84,7 @@ const App = () => (
             <Route
               path="/expert-consultation"
               element={
-                <PrivateRoute>
+                <PrivateRoute requirePremium={true}>
                   <ExpertConsultation />
                 </PrivateRoute>
               }
