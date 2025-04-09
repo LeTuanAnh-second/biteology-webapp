@@ -92,7 +92,7 @@ export const DirectPaymentLink = ({
     }
     
     try {
-      console.log(`Using momo-verify-payment to verify transaction ${orderId} from ${bankType}`);
+      console.log(`Using momo-verify-payment to verify transaction ${orderId} from ${bankType} with ID: ${transactionId}`);
       
       await paymentService.verifyTransaction(orderId, transactionId, bankType);
       
