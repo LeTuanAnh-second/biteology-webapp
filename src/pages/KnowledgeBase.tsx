@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { CategoryFilter } from "@/components/knowledge-base/CategoryFilter";
 import { FoodGrid } from "@/components/knowledge-base/FoodGrid";
 import { FoodDetailDialog } from "@/components/knowledge-base/FoodDetailDialog";
+import { PersonalFoodRecommendations } from "@/components/knowledge-base/PersonalFoodRecommendations";
 import { type Food } from "@/types/knowledge-base";
 import { useCategories } from "@/hooks/use-categories";
 import { useFoods } from "@/hooks/use-foods";
@@ -44,6 +45,13 @@ const KnowledgeBase = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-6">Thư viện món ăn theo bệnh lý</h1>
+          
+          {/* Thêm component gợi ý món ăn cá nhân */}
+          <PersonalFoodRecommendations 
+            foods={foods}
+            onFoodSelect={setSelectedFood}
+          />
+          
           <CategoryFilter
             categories={categories}
             selectedCategory={selectedCategory}
