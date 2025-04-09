@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -14,43 +15,43 @@ export const transactionIdPatterns = {
     pattern: /^840\d{8}$/,
     minLength: 11,
     maxLength: 11,
-    description: "Mã giao dịch MoMo phải có đúng 11 chữ số và bắt đầu bằng 840"
+    description: "Mã giao dịch không chính xác"
   },
   bidv: {
     pattern: /^FT\d{10,14}$/,
     minLength: 12,
     maxLength: 16,
-    description: "Mã giao dịch BIDV thường bắt đầu bằng FT và theo sau là 10-14 chữ số"
+    description: "Mã giao dịch không chính xác"
   },
   techcombank: {
     pattern: /^\d{12,16}$/,
     minLength: 12,
     maxLength: 16,
-    description: "Mã giao dịch Techcombank thường là một dãy 12-16 chữ số"
+    description: "Mã giao dịch không chính xác"
   },
   vietcombank: {
     pattern: /^VCB\d{6,12}$/,
     minLength: 9,
     maxLength: 15,
-    description: "Mã giao dịch Vietcombank thường bắt đầu bằng VCB và theo sau là 6-12 chữ số"
+    description: "Mã giao dịch không chính xác"
   },
   agribank: {
     pattern: /^\d{8,14}$/,
     minLength: 8,
     maxLength: 14,
-    description: "Mã giao dịch Agribank thường là một dãy 8-14 chữ số"
+    description: "Mã giao dịch không chính xác"
   },
   tpbank: {
     pattern: /^\d{9,15}$/,
     minLength: 9,
     maxLength: 15,
-    description: "Mã giao dịch TPBank thường là một dãy 9-15 chữ số"
+    description: "Mã giao dịch không chính xác"
   },
   other: {
     pattern: /^[A-Za-z0-9]{8,20}$/,
     minLength: 8,
     maxLength: 20,
-    description: "Mã giao dịch phải có ít nhất 8 ký tự, bao gồm chữ và số"
+    description: "Mã giao dịch không chính xác"
   }
 };
 
@@ -106,21 +107,21 @@ export const paymentService = {
     if (!transactionId || transactionId.trim().length === 0) {
       return {
         valid: false,
-        error: `Vui lòng nhập mã giao dịch. ${validator.description}`
+        error: "Mã giao dịch không chính xác"
       };
     }
     
     if (transactionId.length < validator.minLength) {
       return {
         valid: false,
-        error: `Mã giao dịch quá ngắn. ${validator.description}`
+        error: "Mã giao dịch không chính xác"
       };
     }
     
     if (transactionId.length > validator.maxLength) {
       return {
         valid: false,
-        error: `Mã giao dịch quá dài. ${validator.description}`
+        error: "Mã giao dịch không chính xác"
       };
     }
     
@@ -131,21 +132,21 @@ export const paymentService = {
         if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
           return {
             valid: false,
-            error: "Mã giao dịch MoMo phải chứa đúng 11 chữ số"
+            error: "Mã giao dịch không chính xác"
           };
         }
         
         if (transactionId.length === 11 && !/^840/.test(transactionId)) {
           return {
             valid: false,
-            error: "Mã giao dịch MoMo không hợp lệ. Phải bắt đầu bằng 840"
+            error: "Mã giao dịch không chính xác"
           };
         }
       }
       
       return {
         valid: false,
-        error: `Định dạng mã giao dịch không hợp lệ. ${validator.description}`
+        error: "Mã giao dịch không chính xác"
       };
     }
     
@@ -163,7 +164,7 @@ export const paymentService = {
         if (pattern.test(transactionId)) {
           return {
             valid: false,
-            error: `Mã giao dịch này không hợp lệ. Vui lòng kiểm tra lại mã từ tin nhắn ngân hàng.`
+            error: "Mã giao dịch không chính xác"
           };
         }
       }

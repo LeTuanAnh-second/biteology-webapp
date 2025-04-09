@@ -52,21 +52,21 @@ function validateTransactionId(transactionId: string, bankType: string = 'momo')
   if (!transactionId || transactionId.trim().length === 0) {
     return {
       valid: false,
-      error: `Vui lòng nhập mã giao dịch.`
+      error: "Mã giao dịch không chính xác"
     };
   }
   
   if (transactionId.length < validator.minLength) {
     return {
       valid: false,
-      error: `Mã giao dịch quá ngắn.`
+      error: "Mã giao dịch không chính xác"
     };
   }
   
   if (transactionId.length > validator.maxLength) {
     return {
       valid: false,
-      error: `Mã giao dịch quá dài.`
+      error: "Mã giao dịch không chính xác"
     };
   }
   
@@ -76,21 +76,21 @@ function validateTransactionId(transactionId: string, bankType: string = 'momo')
       if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
         return {
           valid: false,
-          error: "Mã giao dịch MoMo phải chứa đúng 11 chữ số"
+          error: "Mã giao dịch không chính xác"
         };
       }
       
       if (transactionId.length === 11 && !/^840/.test(transactionId)) {
         return {
           valid: false,
-          error: "Mã giao dịch MoMo không hợp lệ. Phải bắt đầu bằng 840"
+          error: "Mã giao dịch không chính xác"
         };
       }
     }
     
     return {
       valid: false,
-      error: `Định dạng mã giao dịch không hợp lệ.`
+      error: "Mã giao dịch không chính xác"
     };
   }
   
@@ -106,7 +106,7 @@ function validateTransactionId(transactionId: string, bankType: string = 'momo')
       if (pattern.test(transactionId)) {
         return {
           valid: false,
-          error: `Mã giao dịch này không hợp lệ.`
+          error: "Mã giao dịch không chính xác"
         };
       }
     }
