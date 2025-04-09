@@ -92,9 +92,9 @@ export const DirectPaymentLink = ({
     }
     
     try {
-      console.log(`Using momo-verify-payment to verify transaction ${orderId} from ${bankType} with ID: ${transactionId}`);
+      console.log(`Using momo-verify-payment to verify transaction ${orderId} with ID: ${transactionId}`);
       
-      await paymentService.verifyTransaction(orderId, transactionId, bankType);
+      await paymentService.verifyTransaction(orderId, transactionId, 'momo');
       
       // Hiển thị thông báo thành công
       toast({
@@ -164,13 +164,14 @@ export const DirectPaymentLink = ({
             <PaymentConfirmation 
               qrImageUrl={qrImageUrl}
               selectedPlanPrice={selectedPlan?.price || 0}
+              selectedPlanName={selectedPlan?.name}
               onVerify={verifyManualTransaction}
               onCancel={handleCancelPayment}
             />
           )}
 
           <p className="text-sm text-muted-foreground mt-6 text-center max-w-sm">
-            Sau khi thanh toán, vui lòng chọn ngân hàng/ví điện tử và nhập mã giao dịch từ tin nhắn để xác nhận thanh toán.
+            Sau khi thanh toán qua MoMo, vui lòng nhập mã giao dịch từ tin nhắn để xác nhận thanh toán.
           </p>
         </div>
       </DialogContent>

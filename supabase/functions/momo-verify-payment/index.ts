@@ -7,48 +7,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const transactionIdPatterns = {
-  momo: {
-    pattern: /^840\d{8}$/,
-    minLength: 11,
-    maxLength: 11,
-  },
-  bidv: {
-    pattern: /^FT\d{10,14}$/,
-    minLength: 12,
-    maxLength: 16,
-  },
-  techcombank: {
-    pattern: /^\d{12,16}$/,
-    minLength: 12,
-    maxLength: 16,
-  },
-  vietcombank: {
-    pattern: /^VCB\d{6,12}$/,
-    minLength: 9,
-    maxLength: 15,
-  },
-  agribank: {
-    pattern: /^\d{8,14}$/,
-    minLength: 8,
-    maxLength: 14,
-  },
-  tpbank: {
-    pattern: /^\d{9,15}$/,
-    minLength: 9,
-    maxLength: 15,
-  },
-  other: {
-    pattern: /^[A-Za-z0-9]{8,20}$/,
-    minLength: 8,
-    maxLength: 20,
-  }
+// Định dạng mã giao dịch MoMo (bắt đầu bằng 840 và có 11 chữ số)
+const momoPattern = {
+  pattern: /^840\d{8}$/,
+  minLength: 11,
+  maxLength: 11,
 };
 
-function validateTransactionId(transactionId: string, bankType: string = 'momo') {
-  const validator = transactionIdPatterns[bankType as keyof typeof transactionIdPatterns] 
-    || transactionIdPatterns.other;
-  
+function validateMomoTransactionId(transactionId: string) {
   if (!transactionId || transactionId.trim().length === 0) {
     return {
       valid: false,
@@ -56,59 +22,34 @@ function validateTransactionId(transactionId: string, bankType: string = 'momo')
     };
   }
   
-  if (transactionId.length < validator.minLength) {
+  if (transactionId.length !== momoPattern.minLength) {
     return {
       valid: false,
       error: "Mã giao dịch không chính xác"
     };
   }
   
-  if (transactionId.length > validator.maxLength) {
+  if (!momoPattern.pattern.test(transactionId)) {
     return {
       valid: false,
       error: "Mã giao dịch không chính xác"
     };
   }
   
-  if (!validator.pattern.test(transactionId)) {
-    if (bankType === 'momo') {
-      // Kiểm tra cụ thể cho MoMo
-      if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
-        return {
-          valid: false,
-          error: "Mã giao dịch không chính xác"
-        };
-      }
-      
-      if (transactionId.length === 11 && !/^840/.test(transactionId)) {
-        return {
-          valid: false,
-          error: "Mã giao dịch không chính xác"
-        };
-      }
-    }
-    
-    return {
-      valid: false,
-      error: "Mã giao dịch không chính xác"
-    };
-  }
+  // Kiểm tra các mã đơn giản
+  const simplePatterns = [
+    /^(\d)\1+$/, // Toàn số giống nhau
+    /^123456789\d*$/,
+    /^987654321\d*$/,
+    /^(12|123|1234|12345)\d*$/
+  ];
   
-  if (bankType === 'momo') {
-    const simplePatterns = [
-      /^(\d)\1+$/,
-      /^123456789\d*$/,
-      /^987654321\d*$/,
-      /^(12|123|1234|12345)\d*$/ 
-    ];
-    
-    for (const pattern of simplePatterns) {
-      if (pattern.test(transactionId)) {
-        return {
-          valid: false,
-          error: "Mã giao dịch không chính xác"
-        };
-      }
+  for (const pattern of simplePatterns) {
+    if (pattern.test(transactionId)) {
+      return {
+        valid: false,
+        error: "Mã giao dịch không chính xác"
+      };
     }
   }
   
@@ -121,8 +62,8 @@ serve(async (req) => {
   }
 
   try {
-    let { orderId, transactionId, bankType } = await req.json()
-    bankType = bankType || 'momo';
+    let { orderId, transactionId } = await req.json()
+    const bankType = 'momo'; // Luôn sử dụng MoMo
     
     if (!orderId) {
       return new Response(
@@ -131,21 +72,10 @@ serve(async (req) => {
       )
     }
 
-    const validationResult = validateTransactionId(transactionId, bankType);
+    const validationResult = validateMomoTransactionId(transactionId);
     if (!validationResult.valid) {
       return new Response(
         JSON.stringify({ success: false, error: validationResult.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    if (bankType === 'momo' && transactionId === '123456789012' || transactionId === '123123') {
-      console.error('Transaction ID too simple:', transactionId)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Mã giao dịch không hợp lệ. Vui lòng nhập mã giao dịch thực từ tin nhắn MoMo.' 
-        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -157,7 +87,6 @@ serve(async (req) => {
 
     console.log('Processing MoMo transaction verification for order:', orderId)
     console.log('Transaction ID provided:', transactionId || 'None')
-    console.log('Bank type:', bankType)
 
     // Get the transaction from the database
     const { data: transaction, error: transactionError } = await supabase

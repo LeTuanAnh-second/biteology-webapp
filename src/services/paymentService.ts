@@ -1,6 +1,5 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@supabase/supabase-js";
 
 interface CreatePaymentParams {
   userId: string;
@@ -15,42 +14,6 @@ export const transactionIdPatterns = {
     pattern: /^840\d{8}$/,
     minLength: 11,
     maxLength: 11,
-    description: "Mã giao dịch không chính xác"
-  },
-  bidv: {
-    pattern: /^FT\d{10,14}$/,
-    minLength: 12,
-    maxLength: 16,
-    description: "Mã giao dịch không chính xác"
-  },
-  techcombank: {
-    pattern: /^\d{12,16}$/,
-    minLength: 12,
-    maxLength: 16,
-    description: "Mã giao dịch không chính xác"
-  },
-  vietcombank: {
-    pattern: /^VCB\d{6,12}$/,
-    minLength: 9,
-    maxLength: 15,
-    description: "Mã giao dịch không chính xác"
-  },
-  agribank: {
-    pattern: /^\d{8,14}$/,
-    minLength: 8,
-    maxLength: 14,
-    description: "Mã giao dịch không chính xác"
-  },
-  tpbank: {
-    pattern: /^\d{9,15}$/,
-    minLength: 9,
-    maxLength: 15,
-    description: "Mã giao dịch không chính xác"
-  },
-  other: {
-    pattern: /^[A-Za-z0-9]{8,20}$/,
-    minLength: 8,
-    maxLength: 20,
     description: "Mã giao dịch không chính xác"
   }
 };
@@ -79,29 +42,20 @@ export const paymentService = {
       throw new Error("Không thể tạo giao dịch");
     }
     
-    // Get QR image based on plan type
-    const qrImages = {
-      basic: "/lovable-uploads/358581bf-724d-47aa-b28d-62e3529ef5ad.png",
-      standard: "/lovable-uploads/e75b2ec9-7013-4e44-aca1-a5ad55f55f6c.png"
-    };
-    
-    // Select QR image based on plan name (lowercase for consistency)
-    const planNameLower = planName.toLowerCase();
-    const qrImage = planNameLower === 'tiêu chuẩn' || planNameLower === 'standard' 
-      ? qrImages.standard 
-      : qrImages.basic;
-    
+    // Dựa vào tên gói để trả về chuỗi rỗng, QR sẽ được chọn trên frontend
     return {
       orderId: manualOrderId,
-      qrImageUrl: qrImage
+      qrImageUrl: ""
     };
   },
   
-  // Kiểm tra định dạng của mã giao dịch dựa trên loại ngân hàng
+  // Kiểm tra định dạng của mã giao dịch MoMo
   validateTransactionId(transactionId: string, bankType: string = 'momo') {
-    // Chọn quy tắc kiểm tra phù hợp với loại ngân hàng
-    const validator = transactionIdPatterns[bankType as keyof typeof transactionIdPatterns] 
-      || transactionIdPatterns.other;
+    // MoMo luôn là mặc định
+    bankType = 'momo';
+    
+    // Chọn quy tắc kiểm tra cho MoMo
+    const validator = transactionIdPatterns.momo;
     
     // Kiểm tra độ dài
     if (!transactionId || transactionId.trim().length === 0) {
@@ -127,21 +81,19 @@ export const paymentService = {
     
     // Kiểm tra định dạng bằng regex
     if (!validator.pattern.test(transactionId)) {
-      if (bankType === 'momo') {
-        // Kiểm tra cụ thể cho MoMo
-        if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
-          return {
-            valid: false,
-            error: "Mã giao dịch không chính xác"
-          };
-        }
-        
-        if (transactionId.length === 11 && !/^840/.test(transactionId)) {
-          return {
-            valid: false,
-            error: "Mã giao dịch không chính xác"
-          };
-        }
+      // Kiểm tra cụ thể cho MoMo
+      if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
+        return {
+          valid: false,
+          error: "Mã giao dịch không chính xác"
+        };
+      }
+      
+      if (transactionId.length === 11 && !/^840/.test(transactionId)) {
+        return {
+          valid: false,
+          error: "Mã giao dịch không chính xác"
+        };
       }
       
       return {
@@ -151,22 +103,19 @@ export const paymentService = {
     }
     
     // Kiểm tra thêm cho momo để chặn các mã giao dịch đơn giản
-    if (bankType === 'momo') {
-      // Chặn các mã giao dịch đơn giản như 1234567890, 123456789012, v.v.
-      const simplePatterns = [
-        /^(\d)\1+$/, // Chặn trường hợp toàn số giống nhau: 1111111111
-        /^123456789\d*$/, // Chặn trường hợp 123456789...
-        /^987654321\d*$/, // Chặn trường hợp 987654321...
-        /^(12|123|1234|12345)\d*$/ // Chặn trường hợp bắt đầu bằng các số đơn giản
-      ];
-      
-      for (const pattern of simplePatterns) {
-        if (pattern.test(transactionId)) {
-          return {
-            valid: false,
-            error: "Mã giao dịch không chính xác"
-          };
-        }
+    const simplePatterns = [
+      /^(\d)\1+$/, // Chặn trường hợp toàn số giống nhau: 1111111111
+      /^123456789\d*$/, // Chặn trường hợp 123456789...
+      /^987654321\d*$/, // Chặn trường hợp 987654321...
+      /^(12|123|1234|12345)\d*$/ // Chặn trường hợp bắt đầu bằng các số đơn giản
+    ];
+    
+    for (const pattern of simplePatterns) {
+      if (pattern.test(transactionId)) {
+        return {
+          valid: false,
+          error: "Mã giao dịch không chính xác"
+        };
       }
     }
     
@@ -174,6 +123,9 @@ export const paymentService = {
   },
   
   async verifyTransaction(orderId: string, transactionId: string, bankType: string = 'momo') {
+    // Luôn dùng MoMo
+    bankType = 'momo';
+    
     // Kiểm tra tính hợp lệ của mã giao dịch trước khi gửi đến edge function
     const validationResult = this.validateTransactionId(transactionId, bankType);
     if (!validationResult.valid) {

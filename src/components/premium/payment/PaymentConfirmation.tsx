@@ -7,6 +7,7 @@ import { CancelPayment } from "./CancelPayment";
 interface PaymentConfirmationProps {
   qrImageUrl: string | null;
   selectedPlanPrice: number;
+  selectedPlanName?: string;
   onVerify: (transactionId: string, bankType: string) => Promise<void>;
   onCancel: () => Promise<void>;
 }
@@ -14,6 +15,7 @@ interface PaymentConfirmationProps {
 export const PaymentConfirmation: FC<PaymentConfirmationProps> = ({
   qrImageUrl,
   selectedPlanPrice,
+  selectedPlanName = "Cơ bản",
   onVerify,
   onCancel,
 }) => {
@@ -21,7 +23,8 @@ export const PaymentConfirmation: FC<PaymentConfirmationProps> = ({
     <div className="flex flex-col items-center gap-4 w-full">
       <PaymentQRDisplay 
         qrImageUrl={qrImageUrl} 
-        amount={selectedPlanPrice} 
+        amount={selectedPlanPrice}
+        planLabel={selectedPlanName}
       />
       
       <TransactionVerifier 
