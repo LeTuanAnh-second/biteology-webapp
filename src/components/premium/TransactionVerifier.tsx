@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { paymentService } from "@/services/paymentService";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Import the transaction patterns from paymentService
+import { transactionIdPatterns } from "@/services/paymentService";
+
 interface TransactionVerifierProps {
   onVerify: (transactionId: string, bankType: string) => Promise<void>;
   disabled?: boolean;

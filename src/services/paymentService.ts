@@ -9,8 +9,8 @@ interface CreatePaymentParams {
   amount: number;
 }
 
-// Định nghĩa các quy tắc kiểm tra mã giao dịch cho từng ngân hàng
-const transactionIdPatterns = {
+// Export the transactionIdPatterns object so it can be imported in other files
+export const transactionIdPatterns = {
   momo: {
     pattern: /^\d{10,15}$/,
     minLength: 10,
