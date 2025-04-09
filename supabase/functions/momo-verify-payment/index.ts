@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -7,14 +6,105 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const transactionIdPatterns = {
+  momo: {
+    pattern: /^\d{10,15}$/,
+    minLength: 10,
+    maxLength: 15,
+  },
+  bidv: {
+    pattern: /^FT\d{10,14}$/,
+    minLength: 12,
+    maxLength: 16,
+  },
+  techcombank: {
+    pattern: /^\d{12,16}$/,
+    minLength: 12,
+    maxLength: 16,
+  },
+  vietcombank: {
+    pattern: /^VCB\d{6,12}$/,
+    minLength: 9,
+    maxLength: 15,
+  },
+  agribank: {
+    pattern: /^\d{8,14}$/,
+    minLength: 8,
+    maxLength: 14,
+  },
+  tpbank: {
+    pattern: /^\d{9,15}$/,
+    minLength: 9,
+    maxLength: 15,
+  },
+  other: {
+    pattern: /^[A-Za-z0-9]{8,20}$/,
+    minLength: 8,
+    maxLength: 20,
+  }
+};
+
+function validateTransactionId(transactionId: string, bankType: string = 'momo') {
+  const validator = transactionIdPatterns[bankType as keyof typeof transactionIdPatterns] 
+    || transactionIdPatterns.other;
+  
+  if (!transactionId || transactionId.trim().length === 0) {
+    return {
+      valid: false,
+      error: `Vui lòng nhập mã giao dịch.`
+    };
+  }
+  
+  if (transactionId.length < validator.minLength) {
+    return {
+      valid: false,
+      error: `Mã giao dịch quá ngắn.`
+    };
+  }
+  
+  if (transactionId.length > validator.maxLength) {
+    return {
+      valid: false,
+      error: `Mã giao dịch quá dài.`
+    };
+  }
+  
+  if (!validator.pattern.test(transactionId)) {
+    return {
+      valid: false,
+      error: `Định dạng mã giao dịch không hợp lệ.`
+    };
+  }
+  
+  if (bankType === 'momo') {
+    const simplePatterns = [
+      /^(\d)\1+$/,
+      /^123456789\d*$/,
+      /^987654321\d*$/,
+      /^(12|123|1234|12345)\d*$/ 
+    ];
+    
+    for (const pattern of simplePatterns) {
+      if (pattern.test(transactionId)) {
+        return {
+          valid: false,
+          error: `Mã giao dịch này không hợp lệ.`
+        };
+      }
+    }
+  }
+  
+  return { valid: true };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    let { orderId, transactionId } = await req.json()
+    let { orderId, transactionId, bankType } = await req.json()
+    bankType = bankType || 'momo';
     
     if (!orderId) {
       return new Response(
@@ -23,10 +113,21 @@ serve(async (req) => {
       )
     }
 
-    // Validate transaction ID format
-    if (!transactionId || transactionId.trim().length < 5) {
+    const validationResult = validateTransactionId(transactionId, bankType);
+    if (!validationResult.valid) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Mã giao dịch không hợp lệ hoặc quá ngắn' }),
+        JSON.stringify({ success: false, error: validationResult.error }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (bankType === 'momo' && transactionId === '123456789012' || transactionId === '123123') {
+      console.error('Transaction ID too simple:', transactionId)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Mã giao dịch không hợp lệ. Vui lòng nhập mã giao dịch thực từ tin nhắn MoMo.' 
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -38,6 +139,7 @@ serve(async (req) => {
 
     console.log('Processing MoMo transaction verification for order:', orderId)
     console.log('Transaction ID provided:', transactionId || 'None')
+    console.log('Bank type:', bankType)
 
     // Get the transaction from the database
     const { data: transaction, error: transactionError } = await supabase

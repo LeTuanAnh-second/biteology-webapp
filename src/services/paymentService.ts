@@ -15,7 +15,7 @@ const transactionIdPatterns = {
     pattern: /^\d{10,15}$/,
     minLength: 10,
     maxLength: 15,
-    description: "Mã giao dịch MoMo thường là một dãy 10-15 chữ số"
+    description: "Mã giao dịch MoMo phải có từ 10-15 chữ số"
   },
   bidv: {
     pattern: /^FT\d{10,14}$/,
@@ -104,6 +104,13 @@ export const paymentService = {
       || transactionIdPatterns.other;
     
     // Kiểm tra độ dài
+    if (!transactionId || transactionId.trim().length === 0) {
+      return {
+        valid: false,
+        error: `Vui lòng nhập mã giao dịch. ${validator.description}`
+      };
+    }
+    
     if (transactionId.length < validator.minLength) {
       return {
         valid: false,
@@ -124,6 +131,26 @@ export const paymentService = {
         valid: false,
         error: `Định dạng mã giao dịch không hợp lệ. ${validator.description}`
       };
+    }
+    
+    // Kiểm tra thêm cho momo để chặn các mã giao dịch đơn giản
+    if (bankType === 'momo') {
+      // Chặn các mã giao dịch đơn giản như 1234567890, 123456789012, v.v.
+      const simplePatterns = [
+        /^(\d)\1+$/, // Chặn trường hợp toàn số giống nhau: 1111111111
+        /^123456789\d*$/, // Chặn trường hợp 123456789...
+        /^987654321\d*$/, // Chặn trường hợp 987654321...
+        /^(12|123|1234|12345)\d*$/ // Chặn trường hợp bắt đầu bằng các số đơn giản
+      ];
+      
+      for (const pattern of simplePatterns) {
+        if (pattern.test(transactionId)) {
+          return {
+            valid: false,
+            error: `Mã giao dịch này không hợp lệ. Vui lòng kiểm tra lại mã từ tin nhắn ngân hàng.`
+          };
+        }
+      }
     }
     
     return { valid: true };

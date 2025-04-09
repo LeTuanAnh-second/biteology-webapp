@@ -1,12 +1,13 @@
 
-import { FC, useState } from "react";
-import { Loader2, Check } from "lucide-react";
+import { FC, useState, useEffect } from "react";
+import { Loader2, Check, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { paymentService } from "@/services/paymentService";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TransactionVerifierProps {
   onVerify: (transactionId: string, bankType: string) => Promise<void>;
@@ -21,6 +22,7 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
   const [bankType, setBankType] = useState('momo');
   const [error, setError] = useState('');
   const [verifyingTransaction, setVerifyingTransaction] = useState(false);
+  const [helpText, setHelpText] = useState('');
   const { toast } = useToast();
   
   const validateTransactionId = () => {
@@ -64,6 +66,14 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
   const handleTransactionIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTransactionId(e.target.value);
     setError('');
+    
+    // Tự động kiểm tra định dạng khi người dùng nhập
+    if (e.target.value.length > 3) {
+      const validationResult = paymentService.validateTransactionId(e.target.value, bankType);
+      if (!validationResult.valid) {
+        setError(validationResult.error || '');
+      }
+    }
   };
 
   const bankOptions = [
@@ -78,9 +88,14 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
   
   const getBankHelpText = () => {
     const bank = bankOptions.find(b => b.value === bankType);
-    const validator = paymentService.validateTransactionId('', bankType);
-    return bank ? (validator as any).error || '' : '';
+    const validator = transactionIdPatterns[bankType as keyof typeof transactionIdPatterns] || transactionIdPatterns.other;
+    return validator.description || '';
   };
+  
+  // Cập nhật văn bản trợ giúp khi thay đổi loại ngân hàng
+  useEffect(() => {
+    setHelpText(getBankHelpText());
+  }, [bankType]);
   
   return (
     <div className="w-full space-y-4 mt-4">
@@ -101,6 +116,9 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
             ))}
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground">
+          {helpText}
+        </p>
       </div>
       
       <div className="space-y-2">
@@ -113,12 +131,15 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
           className={`w-full ${error ? 'border-red-500' : ''}`}
         />
         {error && (
-          <p className="text-xs text-red-500">
-            {error}
-          </p>
+          <Alert variant="destructive" className="py-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs ml-2">
+              {error}
+            </AlertDescription>
+          </Alert>
         )}
         <p className="text-xs text-muted-foreground">
-          Nhập mã giao dịch từ tin nhắn ngân hàng hoặc ví điện tử sau khi đã thanh toán
+          Nhập chính xác mã giao dịch từ tin nhắn ngân hàng hoặc ví điện tử sau khi đã thanh toán
         </p>
       </div>
       
@@ -127,7 +148,7 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
         size="lg"
         className="w-full flex items-center gap-2"
         onClick={handleVerify}
-        disabled={!transactionId || verifyingTransaction || disabled}
+        disabled={!transactionId || verifyingTransaction || disabled || !!error}
       >
         {verifyingTransaction ? (
           <Loader2 className="h-4 w-4 animate-spin mr-2" />
