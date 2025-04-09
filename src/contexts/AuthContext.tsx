@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -161,16 +162,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      const deployUrl = "https://biteology.netlify.app";
-      console.log("Deploy URL to use:", deployUrl);
-      
+      // Thêm tên ứng dụng vào các thông số Google
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: deployUrl,
+          redirectTo: "https://biteology.netlify.app",
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
+            // Thêm tên hiển thị cho trang đăng nhập Google
+            hd: 'B!teology - Healthy Bites, Healthy Life',
           }
         }
       });

@@ -51,7 +51,7 @@ const GoogleSignIn = () => {
       className="w-full flex justify-center items-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-70 disabled:cursor-not-allowed"
     >
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5 mr-2" />
-      {isLoading ? 'Đang đăng nhập...' : 'Đăng ký với tài khoản Google cá nhân'}
+      {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập với tài khoản Google cá nhân'}
     </button>
   );
 };
