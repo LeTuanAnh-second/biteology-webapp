@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 
@@ -12,10 +11,10 @@ interface CreatePaymentParams {
 // Export the transactionIdPatterns object so it can be imported in other files
 export const transactionIdPatterns = {
   momo: {
-    pattern: /^\d{10,15}$/,
-    minLength: 10,
-    maxLength: 15,
-    description: "Mã giao dịch MoMo phải có từ 10-15 chữ số"
+    pattern: /^840\d{8}$/,
+    minLength: 11,
+    maxLength: 11,
+    description: "Mã giao dịch MoMo phải có đúng 11 chữ số và bắt đầu bằng 840"
   },
   bidv: {
     pattern: /^FT\d{10,14}$/,
@@ -127,6 +126,23 @@ export const paymentService = {
     
     // Kiểm tra định dạng bằng regex
     if (!validator.pattern.test(transactionId)) {
+      if (bankType === 'momo') {
+        // Kiểm tra cụ thể cho MoMo
+        if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
+          return {
+            valid: false,
+            error: "Mã giao dịch MoMo phải chứa đúng 11 chữ số"
+          };
+        }
+        
+        if (transactionId.length === 11 && !/^840/.test(transactionId)) {
+          return {
+            valid: false,
+            error: "Mã giao dịch MoMo không hợp lệ. Phải bắt đầu bằng 840"
+          };
+        }
+      }
+      
       return {
         valid: false,
         error: `Định dạng mã giao dịch không hợp lệ. ${validator.description}`

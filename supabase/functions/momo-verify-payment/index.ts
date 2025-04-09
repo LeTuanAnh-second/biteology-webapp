@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -8,9 +9,9 @@ const corsHeaders = {
 
 const transactionIdPatterns = {
   momo: {
-    pattern: /^\d{10,15}$/,
-    minLength: 10,
-    maxLength: 15,
+    pattern: /^840\d{8}$/,
+    minLength: 11,
+    maxLength: 11,
   },
   bidv: {
     pattern: /^FT\d{10,14}$/,
@@ -70,6 +71,23 @@ function validateTransactionId(transactionId: string, bankType: string = 'momo')
   }
   
   if (!validator.pattern.test(transactionId)) {
+    if (bankType === 'momo') {
+      // Kiểm tra cụ thể cho MoMo
+      if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
+        return {
+          valid: false,
+          error: "Mã giao dịch MoMo phải chứa đúng 11 chữ số"
+        };
+      }
+      
+      if (transactionId.length === 11 && !/^840/.test(transactionId)) {
+        return {
+          valid: false,
+          error: "Mã giao dịch MoMo không hợp lệ. Phải bắt đầu bằng 840"
+        };
+      }
+    }
+    
     return {
       valid: false,
       error: `Định dạng mã giao dịch không hợp lệ.`
