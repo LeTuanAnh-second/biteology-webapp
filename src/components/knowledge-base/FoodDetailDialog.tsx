@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { CookingPot, BookOpen } from "lucide-react";
+import { CookingPot, BookOpen, Utensils, List, CircleDot, Timer, ChefHat } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { type Food } from "@/types/knowledge-base";
@@ -55,7 +55,10 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
 
       if (error) throw error;
 
-      setCookingInstructions(data.answer);
+      // Process the AI response to replace ### markers with icons
+      const formattedInstructions = formatCookingInstructions(data.answer);
+      
+      setCookingInstructions(formattedInstructions);
       // Open instructions modal after getting results
       setShowInstructionsModal(true);
     } catch (error) {
@@ -68,6 +71,111 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Function to format cooking instructions with icons
+  const formatCookingInstructions = (text: string): string => {
+    if (!text) return "";
+
+    // Replace ### Nguyên liệu with icon
+    let formatted = text.replace(/#{3}\s*Nguyên liệu:/gi, 
+      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><List className="h-5 w-5" /></span>Nguyên liệu:</div>');
+    
+    // Replace ### Hướng dẫn with icon
+    formatted = formatted.replace(/#{3}\s*Hướng dẫn:/gi, 
+      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><Utensils className="h-5 w-5" /></span>Hướng dẫn:</div>');
+    
+    // Replace any other ### headers
+    formatted = formatted.replace(/#{3}\s*([^:]+):/gi, 
+      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><ChefHat className="h-5 w-5" /></span>$1:</div>');
+    
+    return formatted;
+  };
+
+  // Function to render instructions with React components instead of string HTML
+  const renderInstructions = (instructions: string | null) => {
+    if (!instructions) return null;
+    
+    // Split the text by sections (Nguyên liệu, Hướng dẫn, etc.)
+    const sections = instructions.split(/<div class="flex items-center gap-2 font-semibold text-primary my-3">/).filter(Boolean);
+    
+    return sections.map((section, index) => {
+      if (index === 0 && !section.includes('</div>')) {
+        // This is the introduction text before any section
+        return <p key={`intro-${index}`} className="mb-4">{section}</p>;
+      }
+      
+      // Extract the section title and content
+      const iconMatch = section.match(/<span class="icon-container"><([A-Za-z]+)[^<]*<\/span>([^<]*)<\/div>(.*)/s);
+      
+      if (!iconMatch) return <p key={`content-${index}`}>{section}</p>;
+      
+      const [, iconName, title, content] = iconMatch;
+      
+      // Render appropriate icon based on the section
+      let icon;
+      switch (iconName) {
+        case 'List':
+          icon = <List className="h-5 w-5" />;
+          break;
+        case 'Utensils':
+          icon = <Utensils className="h-5 w-5" />;
+          break;
+        case 'ChefHat':
+          icon = <ChefHat className="h-5 w-5" />;
+          break;
+        default:
+          icon = <CircleDot className="h-5 w-5" />;
+      }
+      
+      // Format the content: replace numbered steps with styled steps
+      const formattedContent = content
+        .split('\n')
+        .map((line, lineIndex) => {
+          // Match numbered steps like "1. Step description"
+          const stepMatch = line.match(/^(\d+)\.\s*(.+)/);
+          if (stepMatch) {
+            const [, number, step] = stepMatch;
+            return (
+              <div key={`step-${lineIndex}`} className="flex items-start mb-2">
+                <div className="flex items-center justify-center bg-primary/10 rounded-full h-6 w-6 text-primary text-sm mt-0.5 mr-2">
+                  {number}
+                </div>
+                <div>{step}</div>
+              </div>
+            );
+          }
+          
+          // Match bullet points
+          const bulletMatch = line.match(/^[-•]\s*(.+)/);
+          if (bulletMatch) {
+            return (
+              <div key={`bullet-${lineIndex}`} className="flex items-start mb-2">
+                <CircleDot className="h-4 w-4 text-primary mt-1 mr-2 shrink-0" />
+                <div>{bulletMatch[1]}</div>
+              </div>
+            );
+          }
+          
+          // Regular paragraph
+          if (line.trim()) {
+            return <p key={`para-${lineIndex}`} className="mb-2">{line}</p>;
+          }
+          
+          return null;
+        })
+        .filter(Boolean);
+      
+      return (
+        <div key={`section-${index}`} className="mb-6">
+          <div className="flex items-center gap-2 font-semibold text-primary my-3">
+            {icon}
+            {title}
+          </div>
+          <div className="ml-1">{formattedContent}</div>
+        </div>
+      );
+    });
   };
 
   const closeInstructionsModal = () => {
@@ -148,8 +256,8 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
           ) : (
             <div className="mt-4">
               {cookingInstructions ? (
-                <div className="bg-gray-50 rounded-lg p-5 text-gray-700 whitespace-pre-line">
-                  {cookingInstructions}
+                <div className="bg-gray-50 rounded-lg p-5 text-gray-700">
+                  {renderInstructions(cookingInstructions)}
                 </div>
               ) : (
                 <div className="text-center p-4 text-gray-500">
