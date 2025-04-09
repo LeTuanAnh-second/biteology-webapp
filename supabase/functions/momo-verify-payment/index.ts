@@ -23,6 +23,14 @@ serve(async (req) => {
       )
     }
 
+    // Validate transaction ID format
+    if (!transactionId || transactionId.trim().length < 5) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Mã giao dịch không hợp lệ hoặc quá ngắn' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -41,7 +49,7 @@ serve(async (req) => {
     if (transactionError || !transaction) {
       console.error('Error fetching transaction:', transactionError)
       return new Response(
-        JSON.stringify({ success: false, error: 'Transaction not found' }),
+        JSON.stringify({ success: false, error: 'Không tìm thấy giao dịch' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -51,9 +59,45 @@ serve(async (req) => {
     // Check if this is a manual transaction (starts with "manual-" or "momo-")
     const isManualTransaction = orderId.startsWith('manual-') || orderId.startsWith('momo-')
 
+    // Check if transaction is already completed
+    if (transaction.status === 'completed') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Giao dịch này đã được xử lý trước đó' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    // Check if transaction is already cancelled
+    if (transaction.status === 'cancelled') {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Giao dịch này đã bị hủy' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // For manual transactions, simulate successful payment after verifying the transaction ID
     if (isManualTransaction) {
       console.log('Manual payment, processing transaction')
+      
+      // Validate transaction ID format more strictly (check if already used)
+      const { data: existingProof, error: proofCheckError } = await supabase
+        .from('transaction_proofs')
+        .select('*')
+        .eq('transaction_id', transactionId)
+        .limit(1)
+        
+      if (proofCheckError) {
+        console.error('Error checking transaction proof:', proofCheckError)
+      } else if (existingProof && existingProof.length > 0) {
+        console.error('Transaction ID already used:', transactionId)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Mã giao dịch này đã được sử dụng cho một giao dịch khác' 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
       
       // Save proof of transaction first
       try {
@@ -68,18 +112,30 @@ serve(async (req) => {
           
         if (proofError) {
           console.error('Error recording transaction proof:', proofError)
-          // Continue anyway since this is just proof, not critical for the payment process
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Lỗi khi lưu mã giao dịch, vui lòng thử lại' 
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         } else {
           console.log('Transaction proof recorded successfully')
         }
       } catch (proofError) {
         console.error('Exception recording transaction proof:', proofError)
-        // Continue anyway since this is just proof
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Lỗi xử lý giao dịch, vui lòng thử lại' 
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
       
       // If a transaction ID was provided, store it and update status
       if (transactionId) {
-        await supabase
+        const { error: updateError } = await supabase
           .from('payment_transactions')
           .update({ 
             payment_id: transactionId,
@@ -88,31 +144,39 @@ serve(async (req) => {
           })
           .eq('id', transaction.id)
           
+        if (updateError) {
+          console.error('Error updating transaction status:', updateError)
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Lỗi khi cập nhật trạng thái giao dịch' 
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        
         console.log('Transaction updated with payment ID:', transactionId)
       } else {
-        // Otherwise, just update the status
-        await supabase
-          .from('payment_transactions')
-          .update({ 
-            status: 'completed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', transaction.id)
-          
-        console.log('Transaction updated to completed status without payment ID')
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: 'Thiếu mã giao dịch' 
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
 
       // Get the plan
-      const { data: plan } = await supabase
+      const { data: plan, error: planError } = await supabase
         .from('premium_plans')
         .select('*')
         .eq('id', transaction.plan_id)
         .single()
 
-      if (!plan) {
-        console.error('Plan not found for transaction:', transaction.plan_id)
+      if (planError || !plan) {
+        console.error('Error fetching plan:', planError)
         return new Response(
-          JSON.stringify({ success: false, error: 'Plan not found' }),
+          JSON.stringify({ success: false, error: 'Không tìm thấy gói premium' }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -124,16 +188,24 @@ serve(async (req) => {
       endDate.setDate(endDate.getDate() + plan.duration_days)
 
       // Check if user already has a subscription
-      const { data: existingSubscription } = await supabase
+      const { data: existingSubscription, error: subCheckError } = await supabase
         .from('user_subscriptions')
         .select('*')
         .eq('user_id', transaction.user_id)
         .eq('status', 'active')
         .single()
 
+      if (subCheckError && subCheckError.code !== 'PGRST116') {
+        console.error('Error checking existing subscription:', subCheckError)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lỗi kiểm tra gói đăng ký hiện tại' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       if (existingSubscription) {
         // Update existing subscription
-        await supabase
+        const { error: updateSubError } = await supabase
           .from('user_subscriptions')
           .update({
             plan_id: plan.id,
@@ -145,6 +217,14 @@ serve(async (req) => {
           })
           .eq('id', existingSubscription.id)
           
+        if (updateSubError) {
+          console.error('Error updating subscription:', updateSubError)
+          return new Response(
+            JSON.stringify({ success: false, error: 'Lỗi cập nhật gói đăng ký' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+        
         console.log('Updated existing subscription:', existingSubscription.id)
       } else {
         // Create new subscription
@@ -162,6 +242,10 @@ serve(async (req) => {
           
         if (subscriptionError) {
           console.error('Error creating subscription:', subscriptionError)
+          return new Response(
+            JSON.stringify({ success: false, error: 'Lỗi tạo gói đăng ký mới' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
         } else {
           console.log('Created new subscription:', newSubscription)
         }
@@ -175,6 +259,10 @@ serve(async (req) => {
         
       if (updateError) {
         console.error('Error updating profile premium status:', updateError)
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lỗi cập nhật trạng thái premium' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       } else {
         console.log('Updated user premium status for:', transaction.user_id)
       }
@@ -182,7 +270,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Payment verified and subscription updated',
+          message: 'Thanh toán đã được xác minh và gói đăng ký đã được cập nhật',
           transaction: transaction.id
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -193,7 +281,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: 'Invalid payment verification method'
+        error: 'Phương thức xác minh thanh toán không hợp lệ'
       }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -202,7 +290,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: 'Error verifying payment', 
+        error: 'Lỗi xác minh thanh toán', 
         details: error instanceof Error ? error.message : String(error) 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

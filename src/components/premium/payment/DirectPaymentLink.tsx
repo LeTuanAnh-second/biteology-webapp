@@ -108,11 +108,7 @@ export const DirectPaymentLink = ({
       
     } catch (error) {
       console.error('Error verifying transaction:', error);
-      toast({
-        variant: "destructive",
-        title: "Lỗi xác minh giao dịch",
-        description: error instanceof Error ? error.message : "Không thể xác minh giao dịch. Vui lòng thử lại hoặc liên hệ hỗ trợ.",
-      });
+      throw error;
     }
   };
 
