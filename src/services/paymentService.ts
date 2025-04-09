@@ -51,11 +51,12 @@ export const paymentService = {
     };
   },
   
-  async verifyTransaction(orderId: string, transactionId: string) {
+  async verifyTransaction(orderId: string, transactionId: string, bankType: string = 'momo') {
     const response = await supabase.functions.invoke('momo-verify-payment', {
       body: { 
         orderId: orderId,
-        transactionId: transactionId
+        transactionId: transactionId,
+        bankType: bankType
       }
     });
     
@@ -85,4 +86,3 @@ export const paymentService = {
     return { success: true };
   }
 };
-

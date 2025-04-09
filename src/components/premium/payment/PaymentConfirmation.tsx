@@ -7,7 +7,7 @@ import { CancelPayment } from "./CancelPayment";
 interface PaymentConfirmationProps {
   qrImageUrl: string | null;
   selectedPlanPrice: number;
-  onVerify: (transactionId: string) => Promise<void>;
+  onVerify: (transactionId: string, bankType: string) => Promise<void>;
   onCancel: () => Promise<void>;
 }
 
