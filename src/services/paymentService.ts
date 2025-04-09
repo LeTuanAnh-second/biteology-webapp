@@ -8,14 +8,11 @@ interface CreatePaymentParams {
   amount: number;
 }
 
-// Export the transactionIdPatterns object so it can be imported in other files
-export const transactionIdPatterns = {
-  momo: {
-    pattern: /^840\d{8}$/,
-    minLength: 11,
-    maxLength: 11,
-    description: "Mã giao dịch không chính xác"
-  }
+// MoMo transaction ID pattern - must be 11 digits starting with 840
+const momoPattern = {
+  pattern: /^840\d{8}$/,
+  minLength: 11,
+  maxLength: 11,
 };
 
 export const paymentService = {
@@ -42,22 +39,15 @@ export const paymentService = {
       throw new Error("Không thể tạo giao dịch");
     }
     
-    // Dựa vào tên gói để trả về chuỗi rỗng, QR sẽ được chọn trên frontend
     return {
       orderId: manualOrderId,
       qrImageUrl: ""
     };
   },
   
-  // Kiểm tra định dạng của mã giao dịch MoMo
-  validateTransactionId(transactionId: string, bankType: string = 'momo') {
-    // MoMo luôn là mặc định
-    bankType = 'momo';
-    
-    // Chọn quy tắc kiểm tra cho MoMo
-    const validator = transactionIdPatterns.momo;
-    
-    // Kiểm tra độ dài
+  // Validate MoMo transaction ID
+  validateTransactionId(transactionId: string) {
+    // Check for empty input
     if (!transactionId || transactionId.trim().length === 0) {
       return {
         valid: false,
@@ -65,49 +55,28 @@ export const paymentService = {
       };
     }
     
-    if (transactionId.length < validator.minLength) {
+    // Check length
+    if (transactionId.length !== momoPattern.minLength) {
       return {
         valid: false,
         error: "Mã giao dịch không chính xác"
       };
     }
     
-    if (transactionId.length > validator.maxLength) {
+    // Check pattern (must start with 840 and have 11 digits)
+    if (!momoPattern.pattern.test(transactionId)) {
       return {
         valid: false,
         error: "Mã giao dịch không chính xác"
       };
     }
     
-    // Kiểm tra định dạng bằng regex
-    if (!validator.pattern.test(transactionId)) {
-      // Kiểm tra cụ thể cho MoMo
-      if (transactionId.length === 11 && !/^\d{11}$/.test(transactionId)) {
-        return {
-          valid: false,
-          error: "Mã giao dịch không chính xác"
-        };
-      }
-      
-      if (transactionId.length === 11 && !/^840/.test(transactionId)) {
-        return {
-          valid: false,
-          error: "Mã giao dịch không chính xác"
-        };
-      }
-      
-      return {
-        valid: false,
-        error: "Mã giao dịch không chính xác"
-      };
-    }
-    
-    // Kiểm tra thêm cho momo để chặn các mã giao dịch đơn giản
+    // Check for simple patterns to reject
     const simplePatterns = [
-      /^(\d)\1+$/, // Chặn trường hợp toàn số giống nhau: 1111111111
-      /^123456789\d*$/, // Chặn trường hợp 123456789...
-      /^987654321\d*$/, // Chặn trường hợp 987654321...
-      /^(12|123|1234|12345)\d*$/ // Chặn trường hợp bắt đầu bằng các số đơn giản
+      /^(\d)\1+$/,         // All same digits
+      /^123456789\d*$/,    // Sequential ascending
+      /^987654321\d*$/,    // Sequential descending
+      /^(12|123|1234|12345)\d*$/ // Simple sequences
     ];
     
     for (const pattern of simplePatterns) {
@@ -122,26 +91,23 @@ export const paymentService = {
     return { valid: true };
   },
   
-  async verifyTransaction(orderId: string, transactionId: string, bankType: string = 'momo') {
-    // Luôn dùng MoMo
-    bankType = 'momo';
-    
-    // Kiểm tra tính hợp lệ của mã giao dịch trước khi gửi đến edge function
-    const validationResult = this.validateTransactionId(transactionId, bankType);
+  async verifyTransaction(orderId: string, transactionId: string) {
+    // Validate transaction ID format
+    const validationResult = this.validateTransactionId(transactionId);
     if (!validationResult.valid) {
-      throw new Error(validationResult.error || "Mã giao dịch không hợp lệ");
+      throw new Error(validationResult.error || "Mã giao dịch không chính xác");
     }
     
+    // Call the edge function to verify payment
     const response = await supabase.functions.invoke('momo-verify-payment', {
       body: { 
         orderId: orderId,
-        transactionId: transactionId,
-        bankType: bankType
+        transactionId: transactionId
       }
     });
     
     if (!response.data?.success) {
-      throw new Error(response.data?.error || "Không thể xác minh giao dịch");
+      throw new Error(response.data?.error || "Mã giao dịch không chính xác");
     }
     
     return response.data;
@@ -152,7 +118,7 @@ export const paymentService = {
       throw new Error("Thiếu mã đơn hàng");
     }
 
-    // Update the transaction status to 'cancelled' in the database
+    // Update transaction status to 'cancelled'
     const { error } = await supabase
       .from('payment_transactions')
       .update({ status: 'cancelled' })
