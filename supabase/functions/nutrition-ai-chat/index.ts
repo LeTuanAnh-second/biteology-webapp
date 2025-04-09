@@ -17,6 +17,18 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY') ?? ''
 const supabase = createClient(supabaseUrl, supabaseKey)
 
+// Process the text to ensure proper formatting with icons
+function processAnalysisText(text: string): string {
+  // We'll replace heading markers with appropriate icon indicators
+  // This will be rendered correctly on the frontend
+  let processedText = text
+    .replace(/###\s+([^\n]+)/g, '📊 $1')  // Replace ### headings with chart icon
+    .replace(/\*\*\*\s+([^\n]+)/g, '✨ $1')  // Replace *** emphasis with sparkles
+    .replace(/^\s*-\s+/gm, '• ')  // Replace bullet points with nicer bullets
+  
+  return processedText
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -102,6 +114,12 @@ serve(async (req) => {
               3. Không đưa ra lời khuyên y tế mà chỉ tập trung vào dinh dưỡng.
               4. Khi người dùng hỏi về chế độ ăn cho bệnh lý cụ thể, nhắc họ tham khảo ý kiến bác sĩ.
               5. Khuyến khích lối sống lành mạnh, đặc biệt là chế độ ăn cân bằng và đa dạng.
+              
+              Định dạng trả lời:
+              - Dùng tiêu đề "### " cho các phần chính (như đánh giá về BMI, đường huyết, huyết áp...)
+              - Dùng "*** " cho các điểm nhấn quan trọng
+              - Dùng dấu gạch đầu dòng (-) cho các khuyến nghị cụ thể
+              - Giữ các đoạn ngắn gọn dễ đọc
             `
           },
           {
@@ -131,7 +149,9 @@ serve(async (req) => {
     const data = await response.json()
     console.log('OpenAI response received successfully')
     
-    const answer = data.choices[0].message.content
+    // Process the AI response to replace text markers with icon indicators
+    const originalAnswer = data.choices[0].message.content
+    const answer = processAnalysisText(originalAnswer)
 
     // Log chat for analysis
     await supabase

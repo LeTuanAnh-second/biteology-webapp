@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, AlertCircle, Plus, Activity, LineChart, Ruler, Heart } from "lucide-react";
+import { ArrowLeft, AlertCircle, Plus, Activity, LineChart, Ruler, Heart, Scale, Info, Stethoscope, Utensils, Dumbbell, Award, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -168,6 +168,162 @@ const HealthTracking = () => {
     });
   };
 
+  const renderAnalysisContent = () => {
+    if (isAnalyzing) {
+      return (
+        <div className="flex flex-col items-center justify-center py-8">
+          <Activity className="h-10 w-10 animate-pulse text-primary mb-4" />
+          <p>Đang phân tích chỉ số sức khỏe...</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6 p-2">
+        {analysisResult.bmi && (
+          <div className="p-4 border rounded-lg bg-slate-50">
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+              <Scale className="h-5 w-5 text-primary" />
+              Chỉ số BMI
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Chỉ số BMI của bạn:</span>
+                <span className="font-semibold">{analysisResult.bmi}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Phân loại:</span>
+                <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                  analysisResult.bmiCategory === "Bình thường" 
+                    ? "bg-green-100 text-green-800" 
+                    : analysisResult.bmiCategory === "Thừa cân" 
+                      ? "bg-yellow-100 text-yellow-800"
+                      : analysisResult.bmiCategory === "Thiếu cân"
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-red-100 text-red-800"
+                }`}>
+                  {analysisResult.bmiCategory}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {analysisResult.bloodSugarStatus && (
+          <div className="p-4 border rounded-lg bg-slate-50">
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+              <Activity className="h-5 w-5 text-primary" />
+              Đường huyết
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Chỉ số:</span>
+                <span className="font-semibold">{metrics.bloodSugar} mg/dL</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Đánh giá:</span>
+                <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                  analysisResult.bloodSugarStatus.includes("Bình thường")
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}>
+                  {analysisResult.bloodSugarStatus}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {analysisResult.bloodPressureStatus && (
+          <div className="p-4 border rounded-lg bg-slate-50">
+            <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+              <Heart className="h-5 w-5 text-primary" />
+              Huyết áp
+            </h3>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span>Chỉ số:</span>
+                <span className="font-semibold">{metrics.systolic}/{metrics.diastolic} mmHg</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Đánh giá:</span>
+                <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                  analysisResult.bloodPressureStatus === "Bình thường"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-yellow-100 text-yellow-800"
+                }`}>
+                  {analysisResult.bloodPressureStatus}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 p-4 border rounded-lg">
+          <h3 className="font-semibold mb-2 flex items-center gap-2">
+            <Stethoscope className="h-5 w-5 text-primary" />
+            Phân tích chi tiết và khuyến nghị
+          </h3>
+          <div className="text-sm space-y-3 prose prose-sm max-w-none">
+            {analysis.split('\n\n').map((paragraph, idx) => {
+              if (paragraph.startsWith('📊')) {
+                return (
+                  <div key={idx} className="mt-4 first:mt-0">
+                    <h4 className="text-md font-semibold flex items-center gap-2">
+                      {paragraph.startsWith('📊 Đánh giá') && <CheckCircle2 className="h-5 w-5 text-green-600" />}
+                      {paragraph.startsWith('📊 Huyết áp') && <Heart className="h-5 w-5 text-red-600" />}
+                      {paragraph.startsWith('📊 Đường huyết') && <Activity className="h-5 w-5 text-blue-600" />}
+                      {paragraph.startsWith('📊 Khuyến nghị') && <Award className="h-5 w-5 text-yellow-600" />}
+                      {paragraph.replace('📊 ', '')}
+                    </h4>
+                  </div>
+                );
+              }
+              
+              if (paragraph.startsWith('✨')) {
+                return (
+                  <div key={idx} className="ml-2 p-2 bg-yellow-50 border-l-2 border-yellow-200 rounded">
+                    <p className="flex gap-2 items-start">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <span>{paragraph.replace('✨ ', '')}</span>
+                    </p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div key={idx} className="ml-2">
+                  {paragraph.split('\n').map((line, lineIdx) => {
+                    if (line.trim().startsWith('• ')) {
+                      const content = line.replace('• ', '').trim();
+                      
+                      let icon;
+                      if (content.toLowerCase().includes('hoạt động') || content.toLowerCase().includes('thể chất'))
+                        icon = <Dumbbell className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />;
+                      else if (content.toLowerCase().includes('ăn') || content.toLowerCase().includes('thực phẩm') || content.toLowerCase().includes('dinh dưỡng'))
+                        icon = <Utensils className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />;
+                      else
+                        icon = <Info className="h-4 w-4 text-sky-600 mt-0.5 flex-shrink-0" />;
+                      
+                      return (
+                        <p key={lineIdx} className="flex gap-2 items-start my-2">
+                          {icon}
+                          <span>{content}</span>
+                        </p>
+                      );
+                    }
+                    
+                    return <p key={lineIdx} className="my-2">{line}</p>;
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen">
       <header className="border-b">
@@ -189,7 +345,7 @@ const HealthTracking = () => {
         <div className="grid gap-6 md:grid-cols-2">
           <div className="p-6 rounded-lg border bg-card">
             <div className="flex items-center mb-4">
-              <LineChart className="h-6 w-6 mr-2 text-primary" />
+              <Scale className="h-6 w-6 mr-2 text-primary" />
               <h2 className="text-xl font-semibold">Cân nặng</h2>
             </div>
             <p className="text-muted-foreground mb-4">
@@ -297,103 +453,7 @@ const HealthTracking = () => {
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto">
-              {isAnalyzing ? (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Activity className="h-10 w-10 animate-pulse text-primary mb-4" />
-                  <p>Đang phân tích chỉ số sức khỏe...</p>
-                </div>
-              ) : (
-                <div className="space-y-6 p-2">
-                  {analysisResult.bmi && (
-                    <div className="p-4 border rounded-lg bg-slate-50">
-                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                        <LineChart className="h-5 w-5 text-primary" />
-                        Chỉ số BMI
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span>Chỉ số BMI của bạn:</span>
-                          <span className="font-semibold">{analysisResult.bmi}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Phân loại:</span>
-                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
-                            analysisResult.bmiCategory === "Bình thường" 
-                              ? "bg-green-100 text-green-800" 
-                              : analysisResult.bmiCategory === "Thừa cân" 
-                                ? "bg-yellow-100 text-yellow-800"
-                                : analysisResult.bmiCategory === "Thiếu cân"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-red-100 text-red-800"
-                          }`}>
-                            {analysisResult.bmiCategory}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {analysisResult.bloodSugarStatus && (
-                    <div className="p-4 border rounded-lg bg-slate-50">
-                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                        <Activity className="h-5 w-5 text-primary" />
-                        Đường huyết
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span>Chỉ số:</span>
-                          <span className="font-semibold">{metrics.bloodSugar} mg/dL</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Đánh giá:</span>
-                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
-                            analysisResult.bloodSugarStatus.includes("Bình thường")
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {analysisResult.bloodSugarStatus}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {analysisResult.bloodPressureStatus && (
-                    <div className="p-4 border rounded-lg bg-slate-50">
-                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
-                        <Heart className="h-5 w-5 text-primary" />
-                        Huyết áp
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span>Chỉ số:</span>
-                          <span className="font-semibold">{metrics.systolic}/{metrics.diastolic} mmHg</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Đánh giá:</span>
-                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
-                            analysisResult.bloodPressureStatus === "Bình thường"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {analysisResult.bloodPressureStatus}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-4 p-4 border rounded-lg">
-                    <h3 className="font-semibold mb-2 flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-primary" />
-                      Phân tích chi tiết và khuyến nghị
-                    </h3>
-                    <div className="text-sm whitespace-pre-line">
-                      {analysis}
-                    </div>
-                  </div>
-                </div>
-              )}
+              {renderAnalysisContent()}
             </div>
             <DialogFooter>
               <DialogClose asChild>
