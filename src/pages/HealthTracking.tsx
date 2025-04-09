@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { ArrowLeft, AlertCircle, Plus, Activity, LineChart, Ruler } from "lucide-react";
+import { ArrowLeft, AlertCircle, Plus, Activity, LineChart, Ruler, Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,110 @@ const HealthTracking = () => {
   const [showAnalysisDialog, setShowAnalysisDialog] = useState(false);
   const [analysis, setAnalysis] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<{
+    bmi?: number;
+    bmiCategory?: string;
+    bloodSugarStatus?: string;
+    bloodPressureStatus?: string;
+  }>({});
+
+  const calculateBMI = (weight: number, heightCm: number): number => {
+    const heightM = heightCm / 100;
+    return Number((weight / (heightM * heightM)).toFixed(1));
+  };
+
+  const getBMICategory = (bmi: number): string => {
+    if (bmi < 18.5) return "Thiếu cân";
+    if (bmi < 25) return "Bình thường";
+    if (bmi < 30) return "Thừa cân";
+    return "Béo phì";
+  };
+
+  const getBloodSugarStatus = (bloodSugar: number): string => {
+    if (bloodSugar < 70) return "Thấp (Hạ đường huyết)";
+    if (bloodSugar <= 100) return "Bình thường khi đói";
+    if (bloodSugar <= 125) return "Tiền tiểu đường";
+    return "Cao (có thể là tiểu đường)";
+  };
+
+  const getBloodPressureStatus = (systolic: number, diastolic: number): string => {
+    if (systolic < 120 && diastolic < 80) return "Bình thường";
+    if ((systolic >= 120 && systolic <= 129) && diastolic < 80) return "Huyết áp tăng cao";
+    if ((systolic >= 130 && systolic <= 139) || (diastolic >= 80 && diastolic <= 89)) return "Tăng huyết áp cấp 1";
+    if (systolic >= 140 || diastolic >= 90) return "Tăng huyết áp cấp 2";
+    if (systolic > 180 || diastolic > 120) return "Cao nguy hiểm, cần can thiệp y tế ngay lập tức";
+    return "Không xác định";
+  };
+
+  const analyzeHealthMetrics = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Lỗi",
+        description: "Bạn cần đăng nhập để sử dụng tính năng này."
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setShowAnalysisDialog(true);
+    
+    try {
+      const result: {
+        bmi?: number;
+        bmiCategory?: string;
+        bloodSugarStatus?: string;
+        bloodPressureStatus?: string;
+      } = {};
+      
+      if (metrics.height && metrics.weight) {
+        const bmi = calculateBMI(metrics.weight, metrics.height);
+        result.bmi = bmi;
+        result.bmiCategory = getBMICategory(bmi);
+      }
+
+      if (metrics.bloodSugar) {
+        result.bloodSugarStatus = getBloodSugarStatus(metrics.bloodSugar);
+      }
+
+      if (metrics.systolic && metrics.diastolic) {
+        result.bloodPressureStatus = getBloodPressureStatus(metrics.systolic, metrics.diastolic);
+      }
+
+      setAnalysisResult(result);
+      
+      let message = `Phân tích chỉ số sức khỏe của tôi: `;
+      
+      if (metrics.height) message += `Chiều cao: ${metrics.height} cm. `;
+      if (metrics.weight) message += `Cân nặng: ${metrics.weight} kg. `;
+      if (metrics.bloodSugar) message += `Đường huyết: ${metrics.bloodSugar} mg/dL. `;
+      if (metrics.systolic && metrics.diastolic) {
+        message += `Huyết áp: ${metrics.systolic}/${metrics.diastolic} mmHg. `;
+      }
+      
+      if (metrics.height && metrics.weight) {
+        message += `BMI đã tính: ${result.bmi}, phân loại: ${result.bmiCategory}. `;
+      }
+      
+      message += `Hãy tính BMI (nếu có chiều cao và cân nặng) và đánh giá các chỉ số của tôi. Nếu có chỉ số bất thường, hãy cung cấp lời khuyên để cải thiện.`;
+
+      const response = await supabase.functions.invoke('nutrition-ai-chat', {
+        body: { 
+          message,
+          userId: user.id 
+        }
+      });
+      
+      if (response.error) throw new Error(response.error.message);
+      
+      setAnalysis(response.data.answer || "Không thể phân tích chỉ số sức khỏe lúc này.");
+    } catch (error) {
+      console.error("Error analyzing metrics:", error);
+      setAnalysis("Xin lỗi, đã xảy ra lỗi khi phân tích chỉ số sức khỏe. Vui lòng thử lại sau.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleSaveWeight = (value: number) => {
     setMetrics(prev => ({ ...prev, weight: value }));
@@ -63,51 +166,6 @@ const HealthTracking = () => {
       title: "Đã lưu huyết áp",
       description: `${systolic}/${diastolic} mmHg đã được lưu vào hồ sơ của bạn.`
     });
-  };
-
-  const analyzeHealthMetrics = async () => {
-    if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Lỗi",
-        description: "Bạn cần đăng nhập để sử dụng tính năng này."
-      });
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setShowAnalysisDialog(true);
-    
-    try {
-      // Construct a comprehensive message for the AI
-      let message = `Phân tích chỉ số sức khỏe của tôi: `;
-      
-      if (metrics.height) message += `Chiều cao: ${metrics.height} cm. `;
-      if (metrics.weight) message += `Cân nặng: ${metrics.weight} kg. `;
-      if (metrics.bloodSugar) message += `Đường huyết: ${metrics.bloodSugar} mg/dL. `;
-      if (metrics.systolic && metrics.diastolic) {
-        message += `Huyết áp: ${metrics.systolic}/${metrics.diastolic} mmHg. `;
-      }
-      
-      message += `Hãy tính BMI (nếu có chiều cao và cân nặng) và đánh giá các chỉ số của tôi. Nếu có chỉ số bất thường, hãy cung cấp lời khuyên để cải thiện.`;
-
-      // Call nutrition-ai-chat function
-      const response = await supabase.functions.invoke('nutrition-ai-chat', {
-        body: { 
-          message,
-          userId: user.id 
-        }
-      });
-      
-      if (response.error) throw new Error(response.error.message);
-      
-      setAnalysis(response.data.answer || "Không thể phân tích chỉ số sức khỏe lúc này.");
-    } catch (error) {
-      console.error("Error analyzing metrics:", error);
-      setAnalysis("Xin lỗi, đã xảy ra lỗi khi phân tích chỉ số sức khỏe. Vui lòng thử lại sau.");
-    } finally {
-      setIsAnalyzing(false);
-    }
   };
 
   return (
@@ -179,7 +237,7 @@ const HealthTracking = () => {
           
           <div className="p-6 rounded-lg border bg-card">
             <div className="flex items-center mb-4">
-              <Activity className="h-6 w-6 mr-2 text-primary" />
+              <Heart className="h-6 w-6 mr-2 text-primary" />
               <h2 className="text-xl font-semibold">Huyết áp</h2>
             </div>
             <p className="text-muted-foreground mb-4">
@@ -206,35 +264,30 @@ const HealthTracking = () => {
           </div>
         )}
 
-        {/* Weight Dialog */}
         <WeightDialog 
           open={showWeightDialog} 
           onClose={() => setShowWeightDialog(false)} 
           onSave={handleSaveWeight} 
         />
 
-        {/* Height Dialog */}
         <HeightDialog 
           open={showHeightDialog} 
           onClose={() => setShowHeightDialog(false)} 
           onSave={handleSaveHeight} 
         />
 
-        {/* Blood Sugar Dialog */}
         <BloodSugarDialog 
           open={showBloodSugarDialog} 
           onClose={() => setShowBloodSugarDialog(false)} 
           onSave={handleSaveBloodSugar} 
         />
 
-        {/* Blood Pressure Dialog */}
         <BloodPressureDialog 
           open={showBloodPressureDialog} 
           onClose={() => setShowBloodPressureDialog(false)} 
           onSave={handleSaveBloodPressure} 
         />
 
-        {/* Analysis Dialog */}
         <Dialog open={showAnalysisDialog} onOpenChange={setShowAnalysisDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -250,8 +303,95 @@ const HealthTracking = () => {
                   <p>Đang phân tích chỉ số sức khỏe...</p>
                 </div>
               ) : (
-                <div className="text-sm whitespace-pre-line py-4">
-                  {analysis}
+                <div className="space-y-6 p-2">
+                  {analysisResult.bmi && (
+                    <div className="p-4 border rounded-lg bg-slate-50">
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <LineChart className="h-5 w-5 text-primary" />
+                        Chỉ số BMI
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span>Chỉ số BMI của bạn:</span>
+                          <span className="font-semibold">{analysisResult.bmi}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Phân loại:</span>
+                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                            analysisResult.bmiCategory === "Bình thường" 
+                              ? "bg-green-100 text-green-800" 
+                              : analysisResult.bmiCategory === "Thừa cân" 
+                                ? "bg-yellow-100 text-yellow-800"
+                                : analysisResult.bmiCategory === "Thiếu cân"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-red-100 text-red-800"
+                          }`}>
+                            {analysisResult.bmiCategory}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {analysisResult.bloodSugarStatus && (
+                    <div className="p-4 border rounded-lg bg-slate-50">
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <Activity className="h-5 w-5 text-primary" />
+                        Đường huyết
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span>Chỉ số:</span>
+                          <span className="font-semibold">{metrics.bloodSugar} mg/dL</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Đánh giá:</span>
+                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                            analysisResult.bloodSugarStatus.includes("Bình thường")
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {analysisResult.bloodSugarStatus}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {analysisResult.bloodPressureStatus && (
+                    <div className="p-4 border rounded-lg bg-slate-50">
+                      <h3 className="font-semibold text-lg flex items-center gap-2 mb-3">
+                        <Heart className="h-5 w-5 text-primary" />
+                        Huyết áp
+                      </h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span>Chỉ số:</span>
+                          <span className="font-semibold">{metrics.systolic}/{metrics.diastolic} mmHg</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Đánh giá:</span>
+                          <span className={`font-semibold px-2 py-1 rounded-full text-xs ${
+                            analysisResult.bloodPressureStatus === "Bình thường"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}>
+                            {analysisResult.bloodPressureStatus}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 p-4 border rounded-lg">
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-primary" />
+                      Phân tích chi tiết và khuyến nghị
+                    </h3>
+                    <div className="text-sm whitespace-pre-line">
+                      {analysis}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
