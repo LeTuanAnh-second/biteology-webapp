@@ -1,6 +1,18 @@
-
 import { useState } from "react";
-import { CookingPot, BookOpen, Utensils, List, CircleDot, Timer, ChefHat } from "lucide-react";
+import { 
+  CookingPot, 
+  BookOpen, 
+  Utensils, 
+  List, 
+  CircleDot, 
+  Timer, 
+  ChefHat, 
+  Info, 
+  Leaf, 
+  GanttChart,
+  ShoppingBag,
+  LucideIcon
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { type Food } from "@/types/knowledge-base";
@@ -22,6 +34,11 @@ import {
 interface FoodDetailDialogProps {
   food: Food | null;
   onClose: () => void;
+}
+
+interface SectionHeader {
+  title: string;
+  icon: LucideIcon;
 }
 
 export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
@@ -55,11 +72,9 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
 
       if (error) throw error;
 
-      // Process the AI response to replace ### markers with icons
       const formattedInstructions = formatCookingInstructions(data.answer);
       
       setCookingInstructions(formattedInstructions);
-      // Open instructions modal after getting results
       setShowInstructionsModal(true);
     } catch (error) {
       console.error("Error getting cooking instructions:", error);
@@ -73,109 +88,127 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
     }
   };
 
-  // Function to format cooking instructions with icons
   const formatCookingInstructions = (text: string): string => {
     if (!text) return "";
 
-    // Replace ### Nguyên liệu with icon
-    let formatted = text.replace(/#{3}\s*Nguyên liệu:/gi, 
-      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><List className="h-5 w-5" /></span>Nguyên liệu:</div>');
+    const sectionPatterns = [
+      { pattern: /#{3}\s*Nguyên liệu:/gi, icon: "ShoppingBag", title: "Nguyên liệu:" },
+      { pattern: /#{3}\s*Hướng dẫn:/gi, icon: "Utensils", title: "Hướng dẫn:" },
+      { pattern: /#{3}\s*Chuẩn bị:/gi, icon: "GanttChart", title: "Chuẩn bị:" },
+      { pattern: /#{3}\s*Thực hiện:/gi, icon: "ChefHat", title: "Thực hiện:" },
+      { pattern: /#{3}\s*Lưu ý:/gi, icon: "Info", title: "Lưu ý:" },
+      { pattern: /#{3}\s*Thưởng thức:/gi, icon: "Leaf", title: "Thưởng thức:" },
+      { pattern: /#{3}\s*([^:]+):/gi, icon: "CircleDot", title: "$1:" }
+    ];
+
+    let formatted = text;
+    for (const section of sectionPatterns) {
+      formatted = formatted.replace(section.pattern, 
+        `<section data-icon="${section.icon}">${section.title}</section>`);
+    }
     
-    // Replace ### Hướng dẫn with icon
-    formatted = formatted.replace(/#{3}\s*Hướng dẫn:/gi, 
-      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><Utensils className="h-5 w-5" /></span>Hướng dẫn:</div>');
+    formatted = formatted.replace(/(\d+)\.\s+([^\n]+)/g, 
+      '<numbered-item data-number="$1">$2</numbered-item>');
     
-    // Replace any other ### headers
-    formatted = formatted.replace(/#{3}\s*([^:]+):/gi, 
-      '<div class="flex items-center gap-2 font-semibold text-primary my-3"><span class="icon-container"><ChefHat className="h-5 w-5" /></span>$1:</div>');
+    formatted = formatted.replace(/[-•]\s+([^\n]+)/g, 
+      '<bullet-item>$1</bullet-item>');
+    
+    formatted = formatted.replace(/:\)/g, '😊');
+    formatted = formatted.replace(/\(y\)/g, '👍');
+    formatted = formatted.replace(/:sun:/g, '☀️');
     
     return formatted;
   };
 
-  // Function to render instructions with React components instead of string HTML
+  const getIconForSection = (iconName: string): LucideIcon => {
+    const iconMap: Record<string, LucideIcon> = {
+      'ShoppingBag': ShoppingBag,
+      'Utensils': Utensils,
+      'GanttChart': GanttChart,
+      'ChefHat': ChefHat,
+      'Info': Info,
+      'Leaf': Leaf,
+      'CircleDot': CircleDot,
+      'List': List
+    };
+    
+    return iconMap[iconName] || CircleDot;
+  };
+
   const renderInstructions = (instructions: string | null) => {
     if (!instructions) return null;
     
-    // Split the text by sections (Nguyên liệu, Hướng dẫn, etc.)
-    const sections = instructions.split(/<div class="flex items-center gap-2 font-semibold text-primary my-3">/).filter(Boolean);
+    const parts = instructions.split(/<section data-icon="([^"]+)">([^<]+)<\/section>/);
     
-    return sections.map((section, index) => {
-      if (index === 0 && !section.includes('</div>')) {
-        // This is the introduction text before any section
-        return <p key={`intro-${index}`} className="mb-4">{section}</p>;
-      }
-      
-      // Extract the section title and content
-      const iconMatch = section.match(/<span class="icon-container"><([A-Za-z]+)[^<]*<\/span>([^<]*)<\/div>(.*)/s);
-      
-      if (!iconMatch) return <p key={`content-${index}`}>{section}</p>;
-      
-      const [, iconName, title, content] = iconMatch;
-      
-      // Render appropriate icon based on the section
-      let icon;
-      switch (iconName) {
-        case 'List':
-          icon = <List className="h-5 w-5" />;
-          break;
-        case 'Utensils':
-          icon = <Utensils className="h-5 w-5" />;
-          break;
-        case 'ChefHat':
-          icon = <ChefHat className="h-5 w-5" />;
-          break;
-        default:
-          icon = <CircleDot className="h-5 w-5" />;
-      }
-      
-      // Format the content: replace numbered steps with styled steps
-      const formattedContent = content
-        .split('\n')
-        .map((line, lineIndex) => {
-          // Match numbered steps like "1. Step description"
-          const stepMatch = line.match(/^(\d+)\.\s*(.+)/);
-          if (stepMatch) {
-            const [, number, step] = stepMatch;
-            return (
-              <div key={`step-${lineIndex}`} className="flex items-start mb-2">
-                <div className="flex items-center justify-center bg-primary/10 rounded-full h-6 w-6 text-primary text-sm mt-0.5 mr-2">
-                  {number}
+    const components = [];
+    let index = 0;
+    
+    if (parts[0] && !parts[0].includes('<section')) {
+      components.push(
+        <p key={`intro-${index}`} className="text-gray-700 mb-4">{parts[0]}</p>
+      );
+    }
+    
+    for (let i = 1; i < parts.length; i += 3) {
+      if (parts[i] && parts[i+1]) {
+        const iconName = parts[i];
+        const title = parts[i+1];
+        const content = parts[i+2];
+        
+        const SectionIcon = getIconForSection(iconName);
+        
+        const formattedContent = content.split('\n').map((line, lineIndex) => {
+          if (line.includes('<numbered-item')) {
+            const match = line.match(/<numbered-item data-number="(\d+)">([^<]+)<\/numbered-item>/);
+            if (match) {
+              const [, number, step] = match;
+              return (
+                <div key={`step-${lineIndex}`} className="flex items-start mb-3">
+                  <div className="flex items-center justify-center bg-primary/10 rounded-full h-6 w-6 text-primary text-sm mt-0.5 mr-2">
+                    {number}
+                  </div>
+                  <div className="flex-1">{step}</div>
                 </div>
-                <div>{step}</div>
-              </div>
-            );
+              );
+            }
           }
           
-          // Match bullet points
-          const bulletMatch = line.match(/^[-•]\s*(.+)/);
-          if (bulletMatch) {
-            return (
-              <div key={`bullet-${lineIndex}`} className="flex items-start mb-2">
-                <CircleDot className="h-4 w-4 text-primary mt-1 mr-2 shrink-0" />
-                <div>{bulletMatch[1]}</div>
-              </div>
-            );
+          if (line.includes('<bullet-item>')) {
+            const match = line.match(/<bullet-item>([^<]+)<\/bullet-item>/);
+            if (match) {
+              return (
+                <div key={`bullet-${lineIndex}`} className="flex items-start mb-3">
+                  <CircleDot className="h-4 w-4 text-primary mt-1 mr-2 shrink-0" />
+                  <div className="flex-1">{match[1]}</div>
+                </div>
+              );
+            }
           }
           
-          // Regular paragraph
-          if (line.trim()) {
-            return <p key={`para-${lineIndex}`} className="mb-2">{line}</p>;
+          if (line.trim() && !line.includes('<numbered-item') && !line.includes('<bullet-item>')) {
+            return <p key={`para-${lineIndex}`} className="mb-3">{line}</p>;
           }
           
           return null;
-        })
-        .filter(Boolean);
-      
-      return (
-        <div key={`section-${index}`} className="mb-6">
-          <div className="flex items-center gap-2 font-semibold text-primary my-3">
-            {icon}
-            {title}
+        }).filter(Boolean);
+        
+        components.push(
+          <div key={`section-${index}`} className="mb-6">
+            <div className="flex items-center gap-2 font-semibold text-primary my-4 bg-primary/5 p-3 rounded-lg">
+              <SectionIcon className="h-5 w-5" />
+              <h3 className="text-lg">{title}</h3>
+            </div>
+            <div className="ml-2 space-y-1">
+              {formattedContent}
+            </div>
           </div>
-          <div className="ml-1">{formattedContent}</div>
-        </div>
-      );
-    });
+        );
+        
+        index++;
+      }
+    }
+    
+    return components;
   };
 
   const closeInstructionsModal = () => {
@@ -237,11 +270,10 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
         </DialogContent>
       </Dialog>
 
-      {/* Separate modal for cooking instructions */}
       <AlertDialog open={showInstructionsModal} onOpenChange={closeInstructionsModal}>
-        <AlertDialogContent className="max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <AlertDialogContent className="max-w-[650px] max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
+            <AlertDialogTitle className="flex items-center gap-2 border-b pb-2">
               <BookOpen className="h-5 w-5" />
               Hướng dẫn nấu món {food?.name}
             </AlertDialogTitle>
