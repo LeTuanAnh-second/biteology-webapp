@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { 
   CookingPot, 
@@ -91,31 +92,69 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
   const formatCookingInstructions = (text: string): string => {
     if (!text) return "";
 
+    // Define standard section headings with icons
     const sectionPatterns = [
-      { pattern: /#{3}\s*Nguyên liệu:/gi, icon: "ShoppingBag", title: "Nguyên liệu:" },
-      { pattern: /#{3}\s*Hướng dẫn:/gi, icon: "Utensils", title: "Hướng dẫn:" },
-      { pattern: /#{3}\s*Chuẩn bị:/gi, icon: "GanttChart", title: "Chuẩn bị:" },
-      { pattern: /#{3}\s*Thực hiện:/gi, icon: "ChefHat", title: "Thực hiện:" },
-      { pattern: /#{3}\s*Lưu ý:/gi, icon: "Info", title: "Lưu ý:" },
-      { pattern: /#{3}\s*Thưởng thức:/gi, icon: "Leaf", title: "Thưởng thức:" },
-      { pattern: /#{3}\s*([^:]+):/gi, icon: "CircleDot", title: "$1:" }
+      { pattern: /#{1,3}\s*Nguyên liệu:/gi, icon: "ShoppingBag", title: "Nguyên Liệu:" },
+      { pattern: /#{1,3}\s*Hướng dẫn:/gi, icon: "Utensils", title: "Hướng Dẫn:" },
+      { pattern: /#{1,3}\s*Chuẩn bị:/gi, icon: "GanttChart", title: "Chuẩn Bị:" },
+      { pattern: /#{1,3}\s*Thực hiện:/gi, icon: "ChefHat", title: "Thực Hiện:" },
+      { pattern: /#{1,3}\s*Lưu ý:/gi, icon: "Info", title: "Lưu Ý:" },
+      { pattern: /#{1,3}\s*Thưởng thức:/gi, icon: "Leaf", title: "Thưởng Thức:" },
+      { pattern: /#{1,3}\s*Các bước thực hiện:/gi, icon: "List", title: "Các Bước Thực Hiện:" },
+      { pattern: /#{1,3}\s*([^:]+):/gi, icon: "CircleDot", title: "$1:" }
     ];
 
+    // First, make sure we have proper section structure
     let formatted = text;
+    
+    // Add default sections if none are found
+    let hasSections = false;
+    for (const section of sectionPatterns) {
+      if (section.pattern.test(formatted)) {
+        hasSections = true;
+        break;
+      }
+    }
+    
+    if (!hasSections) {
+      // Add a default "Nguyên liệu" section before first bullet point
+      const firstBulletIndex = formatted.indexOf('- ');
+      if (firstBulletIndex > -1) {
+        formatted = 
+          formatted.slice(0, firstBulletIndex) + 
+          "### Nguyên Liệu:\n\n" + 
+          formatted.slice(firstBulletIndex);
+      }
+      
+      // Add a "Các bước thực hiện" section before first numbered item
+      const firstNumberedIndex = formatted.search(/[1-9]\.\s/);
+      if (firstNumberedIndex > -1) {
+        formatted = 
+          formatted.slice(0, firstNumberedIndex) + 
+          "\n### Các Bước Thực Hiện:\n\n" + 
+          formatted.slice(firstNumberedIndex);
+      }
+    }
+
+    // Replace section headings with our custom section tags
     for (const section of sectionPatterns) {
       formatted = formatted.replace(section.pattern, 
         `<section data-icon="${section.icon}">${section.title}</section>`);
     }
     
+    // Format numbered items
     formatted = formatted.replace(/(\d+)\.\s+([^\n]+)/g, 
       '<numbered-item data-number="$1">$2</numbered-item>');
     
-    formatted = formatted.replace(/[-•]\s+([^\n]+)/g, 
+    // Format bullet items (supporting different bullet types)
+    formatted = formatted.replace(/[-•*]\s+([^\n]+)/g, 
       '<bullet-item>$1</bullet-item>');
     
+    // Add emojis and icons
     formatted = formatted.replace(/:\)/g, '😊');
     formatted = formatted.replace(/\(y\)/g, '👍');
     formatted = formatted.replace(/:sun:/g, '☀️');
+    formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     
     return formatted;
   };
@@ -129,7 +168,8 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
       'Info': Info,
       'Leaf': Leaf,
       'CircleDot': CircleDot,
-      'List': List
+      'List': List,
+      'Timer': Timer
     };
     
     return iconMap[iconName] || CircleDot;
@@ -143,6 +183,7 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
     const components = [];
     let index = 0;
     
+    // Handle any text before the first section
     if (parts[0] && !parts[0].includes('<section')) {
       components.push(
         <p key={`intro-${index}`} className="text-gray-700 mb-4">{parts[0]}</p>
@@ -153,18 +194,20 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
       if (parts[i] && parts[i+1]) {
         const iconName = parts[i];
         const title = parts[i+1];
-        const content = parts[i+2];
+        const content = parts[i+2] || "";
         
         const SectionIcon = getIconForSection(iconName);
         
+        // Process content for each section
         const formattedContent = content.split('\n').map((line, lineIndex) => {
+          // Handle numbered items
           if (line.includes('<numbered-item')) {
             const match = line.match(/<numbered-item data-number="(\d+)">([^<]+)<\/numbered-item>/);
             if (match) {
               const [, number, step] = match;
               return (
                 <div key={`step-${lineIndex}`} className="flex items-start mb-3">
-                  <div className="flex items-center justify-center bg-primary/10 rounded-full h-6 w-6 text-primary text-sm mt-0.5 mr-2">
+                  <div className="flex items-center justify-center bg-primary/10 rounded-full h-6 w-6 text-primary text-sm mt-0.5 mr-3 shrink-0">
                     {number}
                   </div>
                   <div className="flex-1">{step}</div>
@@ -173,20 +216,36 @@ export const FoodDetailDialog = ({ food, onClose }: FoodDetailDialogProps) => {
             }
           }
           
+          // Handle bullet items
           if (line.includes('<bullet-item>')) {
             const match = line.match(/<bullet-item>([^<]+)<\/bullet-item>/);
             if (match) {
               return (
                 <div key={`bullet-${lineIndex}`} className="flex items-start mb-3">
-                  <CircleDot className="h-4 w-4 text-primary mt-1 mr-2 shrink-0" />
+                  <div className="flex h-5 w-5 items-center justify-center mr-2 shrink-0">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary"></div>
+                  </div>
                   <div className="flex-1">{match[1]}</div>
                 </div>
               );
             }
           }
           
+          // Handle normal text paragraphs
           if (line.trim() && !line.includes('<numbered-item') && !line.includes('<bullet-item>')) {
-            return <p key={`para-${lineIndex}`} className="mb-3">{line}</p>;
+            // Format strong tags
+            let formattedLine = line;
+            formattedLine = formattedLine.replace(/<strong>([^<]+)<\/strong>/g, (_, text) => {
+              return `<span class="font-semibold">${text}</span>`;
+            });
+            
+            return (
+              <p 
+                key={`para-${lineIndex}`} 
+                className="mb-3 leading-relaxed" 
+                dangerouslySetInnerHTML={{ __html: formattedLine }}
+              />
+            );
           }
           
           return null;
