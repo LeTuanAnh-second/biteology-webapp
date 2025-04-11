@@ -10,7 +10,7 @@ import { AlertCircle } from "lucide-react";
 import { paymentService } from "@/services/paymentService";
 
 interface TransactionVerifierProps {
-  onVerify: (transactionId: string, bankType: string) => Promise<void>;
+  onVerify: (transactionId: string) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -29,7 +29,7 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
       return false;
     }
     
-    const validationResult = paymentService.validateTransactionId(transactionId, 'momo');
+    const validationResult = paymentService.validateTransactionId(transactionId);
     
     if (!validationResult.valid) {
       setError(validationResult.error || 'Mã giao dịch không chính xác');
@@ -49,7 +49,7 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
     
     setVerifyingTransaction(true);
     try {
-      await onVerify(transactionId, 'momo');
+      await onVerify(transactionId);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'Có lỗi xảy ra khi xác nhận thanh toán';
       setError(errorMessage);

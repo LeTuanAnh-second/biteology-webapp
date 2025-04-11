@@ -81,7 +81,7 @@ export const DirectPaymentLink = ({
   };
 
   // Verify manual transaction
-  const verifyManualTransaction = async (transactionId: string, bankType: string) => {
+  const verifyManualTransaction = async (transactionId: string) => {
     if (!orderId || !selectedPlan) {
       toast({
         variant: "destructive",
@@ -94,7 +94,7 @@ export const DirectPaymentLink = ({
     try {
       console.log(`Using momo-verify-payment to verify transaction ${orderId} with ID: ${transactionId}`);
       
-      await paymentService.verifyTransaction(orderId, transactionId, 'momo');
+      await paymentService.verifyTransaction(orderId, transactionId);
       
       // Hiển thị thông báo thành công
       toast({

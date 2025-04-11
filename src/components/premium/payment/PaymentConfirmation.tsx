@@ -8,7 +8,7 @@ interface PaymentConfirmationProps {
   qrImageUrl: string | null;
   selectedPlanPrice: number;
   selectedPlanName?: string;
-  onVerify: (transactionId: string, bankType: string) => Promise<void>;
+  onVerify: (transactionId: string) => Promise<void>;
   onCancel: () => Promise<void>;
 }
 
