@@ -8,9 +8,9 @@ interface CreatePaymentParams {
   amount: number;
 }
 
-// MoMo transaction ID pattern - must be 11 digits starting with 840
+// MoMo transaction ID pattern - must be 11 digits starting with 84 or 85
 const momoPattern = {
-  pattern: /^840\d{8}$/,
+  pattern: /^(84|85)\d{9}$/,
   minLength: 11,
   maxLength: 11,
 };
@@ -63,7 +63,7 @@ export const paymentService = {
       };
     }
     
-    // Check pattern (must start with 840 and have 11 digits)
+    // Check pattern (must start with 84 or 85 and have 11 digits)
     if (!momoPattern.pattern.test(transactionId)) {
       return {
         valid: false,

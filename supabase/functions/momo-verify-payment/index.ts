@@ -7,9 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// MoMo transaction ID pattern - must be 11 digits starting with 840
+// MoMo transaction ID pattern - must be 11 digits starting with 84 or 85
 const momoPattern = {
-  pattern: /^840\d{8}$/,
+  pattern: /^(84|85)\d{9}$/,
   minLength: 11,
   maxLength: 11,
 };

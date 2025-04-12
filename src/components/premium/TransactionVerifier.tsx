@@ -1,6 +1,6 @@
 
 import { FC, useState } from "react";
-import { Loader2, Check } from "lucide-react";
+import { Loader2, Check, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { paymentService } from "@/services/paymentService";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TransactionVerifierProps {
   onVerify: (transactionId: string) => Promise<void>;
@@ -75,7 +81,22 @@ export const TransactionVerifier: FC<TransactionVerifierProps> = ({
   return (
     <div className="w-full space-y-4 mt-4">
       <div className="space-y-2">
-        <Label htmlFor="transactionId">Mã giao dịch MoMo</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="transactionId">Mã giao dịch MoMo</Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center text-xs text-muted-foreground cursor-help">
+                  <Info className="h-3.5 w-3.5 mr-1" />
+                  Hướng dẫn
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                <p>Mã giao dịch MoMo phải có 11 chữ số và bắt đầu bằng 84 hoặc 85.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
         <Input 
           id="transactionId"
           value={transactionId}
