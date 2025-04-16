@@ -33,90 +33,6 @@ export type Database = {
         }
         Relationships: []
       }
-      content: {
-        Row: {
-          content: string | null
-          content_type: string | null
-          created_at: string | null
-          created_by: number | null
-          id: number
-          last_modifieddate: string | null
-          like_count: number | null
-          picture: string | null
-          status: string | null
-          title: string | null
-        }
-        Insert: {
-          content?: string | null
-          content_type?: string | null
-          created_at?: string | null
-          created_by?: number | null
-          id: number
-          last_modifieddate?: string | null
-          like_count?: number | null
-          picture?: string | null
-          status?: string | null
-          title?: string | null
-        }
-        Update: {
-          content?: string | null
-          content_type?: string | null
-          created_at?: string | null
-          created_by?: number | null
-          id?: number
-          last_modifieddate?: string | null
-          like_count?: number | null
-          picture?: string | null
-          status?: string | null
-          title?: string | null
-        }
-        Relationships: []
-      }
-      feedback: {
-        Row: {
-          content: string | null
-          content_id: number | null
-          created_by: number | null
-          created_date: string | null
-          id: number
-          is_liked: boolean | null
-          user_id: number | null
-        }
-        Insert: {
-          content?: string | null
-          content_id?: number | null
-          created_by?: number | null
-          created_date?: string | null
-          id: number
-          is_liked?: boolean | null
-          user_id?: number | null
-        }
-        Update: {
-          content?: string | null
-          content_id?: number | null
-          created_by?: number | null
-          created_date?: string | null
-          id?: number
-          is_liked?: boolean | null
-          user_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_feedback_content"
-            columns: ["content_id"]
-            isOneToOne: false
-            referencedRelation: "content"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_feedback_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       food_categories: {
         Row: {
           category_id: number
@@ -180,56 +96,6 @@ export type Database = {
         }
         Relationships: []
       }
-      health_record: {
-        Row: {
-          blood_pressure: string | null
-          blood_sugar: number | null
-          bmi: number | null
-          cholesterol_level: number | null
-          field1: string | null
-          field2: string | null
-          field3: string | null
-          id: number
-          recorded_date: string | null
-          user_id: number | null
-          weight: number | null
-        }
-        Insert: {
-          blood_pressure?: string | null
-          blood_sugar?: number | null
-          bmi?: number | null
-          cholesterol_level?: number | null
-          field1?: string | null
-          field2?: string | null
-          field3?: string | null
-          id: number
-          recorded_date?: string | null
-          user_id?: number | null
-          weight?: number | null
-        }
-        Update: {
-          blood_pressure?: string | null
-          blood_sugar?: number | null
-          bmi?: number | null
-          cholesterol_level?: number | null
-          field1?: string | null
-          field2?: string | null
-          field3?: string | null
-          id?: number
-          recorded_date?: string | null
-          user_id?: number | null
-          weight?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_healthrecord_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       nutrition_chat_logs: {
         Row: {
           ai_response: string
@@ -251,21 +117,6 @@ export type Database = {
           id?: string
           user_id?: string
           user_message?: string
-        }
-        Relationships: []
-      }
-      payment: {
-        Row: {
-          id: number
-          name: string | null
-        }
-        Insert: {
-          id: number
-          name?: string | null
-        }
-        Update: {
-          id?: number
-          name?: string | null
         }
         Relationships: []
       }
@@ -378,44 +229,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      subscription_detail: {
-        Row: {
-          end_date: string | null
-          id: number
-          package_id: number | null
-          plan_name: string | null
-          start_date: string | null
-          status: string | null
-          user_id: number | null
-        }
-        Insert: {
-          end_date?: string | null
-          id: number
-          package_id?: number | null
-          plan_name?: string | null
-          start_date?: string | null
-          status?: string | null
-          user_id?: number | null
-        }
-        Update: {
-          end_date?: string | null
-          id?: number
-          package_id?: number | null
-          plan_name?: string | null
-          start_date?: string | null
-          status?: string | null
-          user_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_subscription_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       transaction_proofs: {
         Row: {
@@ -538,54 +351,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      users: {
-        Row: {
-          avatar: string | null
-          created_date: string
-          date_of_birth: string | null
-          email: string
-          fullname: string | null
-          health_condition: string | null
-          id: number
-          last_modifieddate: string | null
-          password: string
-          role: string | null
-          status: string | null
-          subscription_status: string | null
-          uuid: string | null
-        }
-        Insert: {
-          avatar?: string | null
-          created_date?: string
-          date_of_birth?: string | null
-          email: string
-          fullname?: string | null
-          health_condition?: string | null
-          id?: never
-          last_modifieddate?: string | null
-          password: string
-          role?: string | null
-          status?: string | null
-          subscription_status?: string | null
-          uuid?: string | null
-        }
-        Update: {
-          avatar?: string | null
-          created_date?: string
-          date_of_birth?: string | null
-          email?: string
-          fullname?: string | null
-          health_condition?: string | null
-          id?: never
-          last_modifieddate?: string | null
-          password?: string
-          role?: string | null
-          status?: string | null
-          subscription_status?: string | null
-          uuid?: string | null
-        }
-        Relationships: []
       }
     }
     Views: {
