@@ -28,7 +28,7 @@ export function validateMomoTransactionId(transactionId: string) {
     };
   }
   
-  // Check for simple patterns
+  // Check for simple patterns that indicate non-random numbers
   const simplePatterns = [
     /^(\d)\1+$/,         // All same digits
     /^123456789\d*$/,    // Sequential ascending
