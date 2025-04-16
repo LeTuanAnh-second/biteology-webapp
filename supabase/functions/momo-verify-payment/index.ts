@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { validateMomoTransactionId } from './validator.ts'
@@ -127,7 +128,7 @@ serve(async (req) => {
     }
     
     // Update transaction status to completed
-    const { error: updateError } = await supabase
+    const { error: txUpdateError } = await supabase
       .from('payment_transactions')
       .update({ 
         payment_id: transactionId,
@@ -136,8 +137,8 @@ serve(async (req) => {
       })
       .eq('id', transaction.id)
       
-    if (updateError) {
-      console.error('Error updating transaction status:', updateError)
+    if (txUpdateError) {
+      console.error('Error updating transaction status:', txUpdateError)
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -235,13 +236,13 @@ serve(async (req) => {
     }
 
     // Update user's premium status
-    const { error: updateError } = await supabase
+    const { error: profileUpdateError } = await supabase
       .from('profiles')
       .update({ is_premium: true })
       .eq('id', transaction.user_id)
       
-    if (updateError) {
-      console.error('Error updating profile premium status:', updateError)
+    if (profileUpdateError) {
+      console.error('Error updating profile premium status:', profileUpdateError)
       return new Response(
         JSON.stringify({ success: false, error: 'Mã giao dịch không chính xác' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
