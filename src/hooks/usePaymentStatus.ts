@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { SUPABASE_URL } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export function usePaymentStatus(orderId: string | null, onSuccess?: () => void) {
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'success' | 'failed'>('pending');
@@ -16,22 +16,16 @@ export function usePaymentStatus(orderId: string | null, onSuccess?: () => void)
         return;
       }
       
-      const apiUrl = `${SUPABASE_URL}/functions/v1/payos-verify-payment`;
-      console.log("Checking payment status at:", apiUrl);
-      
-      const response = await fetch(`${apiUrl}?orderId=${orderId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await supabase.functions.invoke('payos-verify-payment', {
+        body: { orderId }
       });
       
-      if (!response.ok) {
-        console.error('API response not OK:', response.status, response.statusText);
+      if (!response.data) {
+        console.error('API response error:', response.error);
         return;
       }
       
-      const data = await response.json();
+      const data = response.data;
       console.log("Payment status response:", data);
       
       if (data.success) {

@@ -1,10 +1,9 @@
 
 import { useState } from "react";
 import { User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { usePaymentStatus } from "./usePaymentStatus";
 import { usePaymentRetry } from "./usePaymentRetry";
-import { SUPABASE_URL } from "@/lib/supabase";
 
 export function usePaymentProcess(
   user: User | null,
@@ -28,25 +27,19 @@ export function usePaymentProcess(
       throw new Error('No access token available');
     }
     
-    const apiUrl = `${SUPABASE_URL}/functions/v1/payos-create-order`;
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
+    const response = await supabase.functions.invoke('payos-create-order', {
+      body: {
         planId: selectedPlan,
         userId: user.id,
         callbackUrl: window.location.origin
-      })
+      }
     });
     
-    if (!response.ok) {
+    if (!response.data) {
       throw new Error('Failed to create order');
     }
     
-    const result = await response.json();
+    const result = response.data;
     if (!result.success) {
       throw new Error(result.error || 'Could not create order');
     }

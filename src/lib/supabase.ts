@@ -12,3 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     flowType: 'pkce',
   },
 });
+
+// Export the URL for use in other files if needed
+export const SUPABASE_URL = supabaseUrl;
